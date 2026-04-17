@@ -1,0 +1,30 @@
+:root {
+    --bg: #f4f1ea;
+    --text: #2c2c2c;
+    --primary: #5c4a3d;
+    --accent: #8b7355;
+    --card: #ffffff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Georgia', serif; }
+body { background: var(--bg); color: var(--text); line-height: 1.6; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem; background: var(--card); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.logo { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+nav button { background: none; border: 1px solid var(--accent); padding: 0.5rem 1rem; margin-left: 0.5rem; cursor: pointer; border-radius: 4px; color: var(--primary); }
+nav button:hover { background: var(--accent); color: white; }
+main { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+section { display: none; background: var(--card); padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+.active { display: block; }
+h1, h2 { color: var(--primary); margin-bottom: 1rem; }
+.primary-btn, .secondary-btn { padding: 0.75rem 1.5rem; border: none; cursor: pointer; border-radius: 5px; font-size: 1rem; margin: 0.5rem; }
+.primary-btn { background: var(--primary); color: white; }
+.primary-btn:hover { background: #4a3a2e; }
+.secondary-btn { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+input, textarea { width: 100%; padding: 0.75rem; margin: 0.5rem 0; border: 1px solid #ccc; border-radius: 4px; }
+textarea { height: 100px; resize: vertical; }
+.hidden { display: none !important; }
+.years { font-size: 1.2rem; color: #666; margin-bottom: 1rem; }
+.relation { font-style: italic; color: var(--accent); }
+.memorial-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+#qr-reader { width: 100%; max-width: 400px; margin: 1rem auto; border: 2px dashed var(--accent); border-radius: 8px; }
+footer { text-align: center; padding: 2rem; color: #888; font-size: 0.9rem; }
+@media (max-width: 600px) { header { flex-direction: column; gap: 1rem; } nav { display: flex; flex-wrap: wrap; justify-content: center; } }

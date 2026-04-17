@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вечная память</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Firebase Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <!-- QR Scanner -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <!-- QR Generator -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="logo">🕊️ Вечная память</div>
+        <nav id="nav">
+            <button id="btn-login" onclick="showAuth()">Вход</button>
+            <button id="btn-register" onclick="showAuth('register')">Регистрация</button>
+            <button id="btn-admin" class="hidden" onclick="showSection('admin')">Админка</button>
+            <button id="btn-logout" class="hidden" onclick="logout()">Выйти</button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Главная -->
+        <section id="home" class="active">
+            <h1>Цифровая память о близких</h1>
+            <p>Отсканируйте QR-код на памятнике, чтобы сохранить историю, фотографии и связь поколений.</p>
+            <button class="primary-btn" onclick="startScanner()">📷 Сканировать QR</button>
+        </section>
+
+        <!-- Авторизация -->
+        <section id="auth" class="hidden">
+            <h2 id="auth-title">Вход</h2>
+            <form id="auth-form">
+                <input type="email" id="email" placeholder="Email" required>
+                <input type="password" id="password" placeholder="Пароль" required>
+                <button type="submit" class="primary-btn" id="auth-submit">Войти</button>
+            </form>
+            <p class="switch-auth" id="switch-auth" onclick="toggleAuthMode()">Нет аккаунта? Зарегистрироваться</p>
+        </section>
+
+        <!-- Сканер -->
+        <section id="scanner" class="hidden">
+            <h2>Наведите камеру на QR-код</h2>
+            <div id="qr-reader"></div>
+            <button class="secondary-btn" onclick="stopScanner()">Закрыть</button>
+        </section>
+
+        <!-- Страница умершего -->
+        <section id="memorial" class="hidden">
+            <h2 id="m-name">ФИО</h2>
+            <p class="years" id="m-years">0000 — 0000</p>
+            
+            <!-- Только для авторизованных -->
+            <div id="auth-extra" class="hidden">
+                <p class="relation" id="m-relation">Кем приходится:</p>
+                <div class="memorial-actions">
+                    <button class="secondary-btn" onclick="alert('Раздел Семейного древа в разработке')">🌳 Семейное древо</button>
+                    <button class="secondary-btn" id="btn-geo" onclick="openMap()">📍 Геолокация</button>
+                    <button class="secondary-btn" onclick="toggleDetails()">📖 Подробнее</button>
+                </div>
+                <p id="m-details" class="hidden details-text">Подробная биография, фотогалерея и воспоминания...</p>
+            </div>
+
+            <!-- Только для админа -->
+            <div id="admin-extra" class="hidden">
+                <h3>Редактирование</h3>
+                <input type="text" id="edit-name" placeholder="ФИО">
+                <input type="text" id="edit-years" placeholder="Годы (напр. 1940-2015)">
+                <input type="text" id="edit-relation" placeholder="Связь (опционально)">
+                <textarea id="edit-details" placeholder="Подробности"></textarea>
+                <input type="text" id="edit-lat" placeholder="Широта">
+                <input type="text" id="edit-lng" placeholder="Долгота">
+                <button class="primary-btn" onclick="saveMemorial()">💾 Сохранить изменения</button>
+                <button class="secondary-btn" onclick="generateQR()">🔲 Сгенерировать QR</button>
+                <div id="qr-output"></div>
+            </div>
+        </section>
+
+        <!-- Админка -->
+        <section id="admin" class="hidden">
+            <h2>Панель администратора</h2>
+            <form id="add-memorial">
+                <input type="text" id="new-id" placeholder="ID памятника (напр. ivanov)" required>
+                <input type="text" id="new-name" placeholder="ФИО" required>
+                <input type="text" id="new-years" placeholder="Годы жизни" required>
+                <input type="text" id="new-relation" placeholder="Связь (опционально)">
+                <textarea id="new-details" placeholder="Подробности"></textarea>
+                <input type="text" id="new-lat" placeholder="Широта">
+                <input type="text" id="new-lng" placeholder="Долгота">
+                <button type="submit" class="primary-btn">➕ Добавить памятник</button>
+            </form>
+        </section>
+    </main>
+
+    <footer>© 2026 Вечная память. Проект создан в память о близких.</footer>
+    <script src="app.js"></script>
+</body>
+</html>
