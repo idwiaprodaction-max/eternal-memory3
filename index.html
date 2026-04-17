@@ -19,8 +19,9 @@
             <button id="btn-login" onclick="showAuth()">Вход</button>
             <button id="btn-register" onclick="showAuth('register')">Регистрация</button>
             <button id="btn-profile" class="hidden" onclick="showProfile()">👤 Профиль</button>
+            <button id="btn-user-msgs" class="hidden" onclick="loadUserMessages()">📜 Мои сообщения</button>
             <button id="btn-admin" class="hidden" onclick="showAdminPanel()">🛠 Админка</button>
-            <button id="btn-messages" class="hidden" onclick="showMessages()">📩 Сообщения</button>
+            <button id="btn-admin-chats" class="hidden" onclick="showAdminChats()">💬 Чаты</button>
             <button id="btn-logout" class="hidden" onclick="logout()">Выйти</button>
         </nav>
     </header>
@@ -31,22 +32,12 @@
             <h1>Цифровая память о близких</h1>
             <p>Отсканируйте QR-код на памятнике, чтобы сохранить историю.</p>
             <button class="primary-btn" onclick="startScanner()">📷 Сканировать QR</button>
-            
             <div style="margin-top:40px;">
                 <h2 style="text-align:center; margin-bottom:20px;">Примеры</h2>
                 <div class="examples-grid">
-                    <div class="memorial-card" onclick="loadMemorial('ivanov')">
-                        <h3>Иванов Иван Иванович</h3>
-                        <p>1940 — 2015</p>
-                    </div>
-                    <div class="memorial-card" onclick="loadMemorial('petrova')">
-                        <h3>Петрова Мария Сергеевна</h3>
-                        <p>1952 — 2020</p>
-                    </div>
-                    <div class="memorial-card" onclick="loadMemorial('sidorov')">
-                        <h3>Сидоров Пётр Николаевич</h3>
-                        <p>1935 — 2018</p>
-                    </div>
+                    <div class="memorial-card" onclick="loadMemorial('ivanov')"><h3>Иванов Иван Иванович</h3><p>1940 — 2015</p></div>
+                    <div class="memorial-card" onclick="loadMemorial('petrova')"><h3>Петрова Мария Сергеевна</h3><p>1952 — 2020</p></div>
+                    <div class="memorial-card" onclick="loadMemorial('sidorov')"><h3>Сидоров Пётр Николаевич</h3><p>1935 — 2018</p></div>
                 </div>
             </div>
         </section>
@@ -62,24 +53,31 @@
             <p class="switch-auth" id="switch-auth" onclick="toggleAuthMode()">Нет аккаунта? Зарегистрироваться</p>
         </section>
 
-        <!-- ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ -->
+        <!-- ПРОФИЛЬ -->
         <section id="profile" class="hidden">
             <h2>👤 Мой профиль</h2>
             <div class="profile-card">
                 <p><strong>Email:</strong> <span id="profile-email">...</span></p>
                 <p><strong>Роль:</strong> <span id="profile-role">...</span></p>
                 <p><strong>Дата регистрации:</strong> <span id="profile-date">...</span></p>
-                <button class="secondary-btn" onclick="logout()">🚪 Выйти из аккаунта</button>
+                <button class="secondary-btn" onclick="logout()">🚪 Выйти</button>
             </div>
+        </section>
+
+        <!-- ИСТОРИЯ СООБЩЕНИЙ (ПОЛЬЗОВАТЕЛЬ) -->
+        <section id="user-messages" class="hidden">
+            <h2>📜 Мои обращения</h2>
+            <div id="user-msg-list" style="margin-top:15px;"></div>
+            <button class="secondary-btn" onclick="showSection('feedback')">✉️ Написать новое</button>
+            <button class="secondary-btn" onclick="showSection('home')">🔙 На главную</button>
         </section>
 
         <!-- ФОРМА ОБРАТНОЙ СВЯЗИ -->
         <section id="feedback" class="hidden">
             <h2>✉️ Написать администратору</h2>
-            <p style="color:#666; margin-bottom:20px;">Есть вопросы или предложения? Напишите нам!</p>
             <form id="feedback-form">
-                <input type="text" id="feedback-subject" placeholder="Тема сообщения" required>
-                <textarea id="feedback-message" placeholder="Ваше сообщение..." style="height:150px;" required></textarea>
+                <input type="text" id="feedback-subject" placeholder="Тема" required>
+                <textarea id="feedback-message" placeholder="Ваше сообщение..." style="height:120px;" required></textarea>
                 <button type="submit" class="primary-btn">📤 Отправить</button>
                 <button type="button" class="secondary-btn" onclick="showSection('home')">Отмена</button>
             </form>
@@ -92,30 +90,22 @@
             <button class="secondary-btn" onclick="stopScanner()">Закрыть</button>
         </section>
 
-        <!-- АДМИНКА: СПИСОК ПАМЯТНИКОВ -->
+        <!-- АДМИНКА: ПАМЯТНИКИ -->
         <section id="admin" class="hidden">
             <h2>🛠 Управление памятниками</h2>
-            <div style="margin-bottom: 20px;">
-                <button class="primary-btn" onclick="showSection('add-new')">➕ Добавить новый</button>
-                <button class="secondary-btn" onclick="showMessages()">📩 Сообщения от пользователей</button>
-            </div>
-            <div id="admin-list" class="admin-grid">
-                <p>Загрузка...</p>
-            </div>
+            <button class="primary-btn" onclick="showSection('add-new')">➕ Добавить</button>
+            <div id="admin-list" class="admin-grid" style="margin-top:20px;"><p>Загрузка...</p></div>
         </section>
 
         <!-- ДОБАВЛЕНИЕ ПАМЯТНИКА -->
         <section id="add-new" class="hidden">
             <h2>Добавить памятник</h2>
             <form id="add-memorial">
-                <input type="text" id="new-id" placeholder="ID (латиницей, напр. ivanov)" required>
+                <input type="text" id="new-id" placeholder="ID (латиницей)" required>
                 <input type="text" id="new-name" placeholder="ФИО" required>
-                <input type="text" id="new-years" placeholder="Годы (1900-2000)" required>
+                <input type="text" id="new-years" placeholder="Годы" required>
                 <textarea id="new-details" placeholder="Биография"></textarea>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="new-lat" placeholder="Широта">
-                    <input type="text" id="new-lng" placeholder="Долгота">
-                </div>
+                <div style="display:flex; gap:10px;"><input type="text" id="new-lat" placeholder="Широта"><input type="text" id="new-lng" placeholder="Долгота"></div>
                 <div id="add-family-list"></div>
                 <button type="button" class="secondary-btn" onclick="addFamilyMember()">+ Родственник</button>
                 <button type="submit" class="primary-btn" style="margin-top:15px;">Сохранить</button>
@@ -123,68 +113,53 @@
             </form>
         </section>
 
+        <!-- СПИСОК ЧАТОВ (АДМИН) -->
+        <section id="admin-chats" class="hidden">
+            <h2>💬 Входящие обращения</h2>
+            <div id="chats-list" style="margin-top:15px;"><p>Загрузка чатов...</p></div>
+            <button class="secondary-btn" onclick="showAdminPanel()">🔙 В админку</button>
+        </section>
+
+        <!-- ОКНО ПЕРЕПИСКИ (ЧАТ) -->
+        <section id="chat-view" class="hidden">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 id="chat-title">Чат</h2>
+                <button class="secondary-btn" onclick="showAdminChats()">🔙 К списку</button>
+            </div>
+            <div id="chat-messages" style="height:400px; overflow-y:auto; background:#f9f9f9; padding:15px; border-radius:8px; margin:15px 0;"></div>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="chat-input" placeholder="Напишите сообщение..." style="flex:1;">
+                <button class="primary-btn" onclick="sendChatMessage()">📤</button>
+            </div>
+        </section>
+
         <!-- СТРАНИЦА ПАМЯТНИКА -->
         <section id="memorial" class="hidden">
             <button class="secondary-btn" style="margin-bottom:15px;" onclick="showSection('home')">⬅ На главную</button>
-            
             <h2 id="m-name">ФИО</h2>
             <p class="years" id="m-years">0000 — 0000</p>
-            
             <div id="auth-extra" class="hidden">
                 <h3>Биография</h3>
                 <p id="m-bio" style="white-space: pre-wrap;"></p>
-                
                 <h3 style="margin-top:20px;">Семейное древо</h3>
                 <div id="family-tree-display"></div>
-                
-                <div class="memorial-actions" style="margin-top:20px;">
-                    <button class="secondary-btn hidden" id="btn-geo">📍 Геолокация</button>
-                </div>
+                <div class="memorial-actions" style="margin-top:20px;"><button class="secondary-btn hidden" id="btn-geo">📍 Геолокация</button></div>
             </div>
-
-            <!-- КНОПКА "НАПИСАТЬ АДМИНУ" -->
             <div style="margin-top: 30px; padding: 15px; background: #f0f4f8; border-radius: 8px; text-align: center; border: 1px solid #d0d8e0;">
-                <p style="margin-bottom: 10px; color: #555;">💬 Нашли ошибку или хотите дополнить?</p>
+                <p style="margin-bottom: 10px; color: #555;">💬 Вопрос или уточнение?</p>
                 <button class="secondary-btn" onclick="showSection('feedback')">✉️ Написать администратору</button>
             </div>
-            
-            <div style="margin-top:30px; text-align:center;">
-                <p style="color:#888; font-size:0.9em;">QR-код памятника</p>
-                <div id="memorial-qr" style="display:inline-block; margin-top:10px;"></div>
-            </div>
-
-            <!-- АДМИН ПАНЕЛЬ -->
+            <div style="margin-top:30px; text-align:center;"><p style="color:#888; font-size:0.9em;">QR-код</p><div id="memorial-qr" style="display:inline-block; margin-top:10px;"></div></div>
             <div id="admin-extra" class="hidden" style="margin-top:30px; padding-top:20px; border-top:2px dashed #aaa;">
                 <h3 style="color:red;">🔧 Редактирование</h3>
-                <input type="text" id="edit-name" placeholder="ФИО">
-                <input type="text" id="edit-years" placeholder="Годы">
-                <textarea id="edit-details" placeholder="Биография"></textarea>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="edit-lat" placeholder="Широта">
-                    <input type="text" id="edit-lng" placeholder="Долгота">
-                </div>
-                
-                <h4>Семейное древо</h4>
-                <div id="edit-family-list"></div>
+                <input type="text" id="edit-name" placeholder="ФИО"><input type="text" id="edit-years" placeholder="Годы"><textarea id="edit-details" placeholder="Биография"></textarea>
+                <div style="display:flex; gap:10px;"><input type="text" id="edit-lat" placeholder="Широта"><input type="text" id="edit-lng" placeholder="Долгота"></div>
+                <h4>Семейное древо</h4><div id="edit-family-list"></div>
                 <button type="button" class="secondary-btn" onclick="addFamilyMember('edit')">+ Родственник</button>
-                
-                <div style="margin-top:20px;">
-                    <button class="primary-btn" onclick="saveMemorial()">💾 Сохранить</button>
-                    <button class="secondary-btn" onclick="showAdminPanel()">🔙 В список</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- СООБЩЕНИЯ (АДМИН) -->
-        <section id="messages" class="hidden">
-            <h2>📩 Сообщения от пользователей</h2>
-            <button class="secondary-btn" onclick="showAdminPanel()">🔙 Назад в админку</button>
-            <div id="messages-list" style="margin-top:20px;">
-                <p>Загрузка...</p>
+                <div style="margin-top:20px;"><button class="primary-btn" onclick="saveMemorial()">💾 Сохранить</button><button class="secondary-btn" onclick="showAdminPanel()">🔙 В список</button></div>
             </div>
         </section>
     </main>
-
     <footer>© 2026 Вечная память</footer>
     <script src="app.js"></script>
 </body>
