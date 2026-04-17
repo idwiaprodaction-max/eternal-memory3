@@ -18,6 +18,7 @@ let currentMemorialId = null;
 let currentChatId = null;
 let qrScanner = null;
 let chatUnsubscribe = null;
+let currentChatUserName = "Пользователь"; // Переменная для хранения имени собеседника
 
 // === НАВИГАЦИЯ ===
 window.showSection = function(id) {
@@ -59,9 +60,8 @@ window.showAuth = function(mode) {
   document.getElementById('auth-submit').textContent = isReg ? 'Создать аккаунт' : 'Войти';
   document.getElementById('switch-auth').textContent = isReg ? 'Уже есть? Войти' : 'Нет аккаунта? Регистрация';
   
-  // Показываем поле имени только при регистрации
   document.getElementById('reg-name').style.display = isReg ? 'block' : 'none';
-  document.getElementById('reg-name').value = ''; // Очистить
+  document.getElementById('reg-name').value = ''; 
   showSection('auth');
 };
 
@@ -77,7 +77,6 @@ document.getElementById('auth-form').addEventListener('submit', e => {
   const name = document.getElementById('reg-name').value.trim();
   const isReg = document.getElementById('auth-submit').textContent === 'Создать аккаунт';
   
-  // Показываем поле имени если переключились на регистрацию
   document.getElementById('reg-name').style.display = isReg ? 'block' : 'none';
 
   if(isReg && !name) return alert('Введите ваше имя!');
@@ -222,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// === ЧАТЫ ===
+// === ЧАТЫ (ОБНОВЛЕНО ДЛЯ ОТОБРАЖЕНИЯ ИМЕН) ===
 document.addEventListener('DOMContentLoaded', () => {
   const fbForm = document.getElementById('feedback-form');
   if(fbForm) {
@@ -258,52 +257,112 @@ window.loadUserMessages = function() {
   });
 };
 
-window.showAdminChats = function() {
+// СПИСОК ЧАТОВ ДЛЯ АДМИНА (С ИМЕНАМИ)
+window.showAdminChats = async function() {
   if(userRole !== 'admin') return;
   window.showSection('admin-chats');
   const list = document.getElementById('chats-list');
-  list.innerHTML = '<p>⏳ Загрузка...</p>';
-  db.collection('messages').get().then(snap => {
-    list.innerHTML = '';
+  list.innerHTML = '<p>⏳ Загрузка чатов и имен...</p>';
+  
+  try {
+    const snap = await db.collection('messages').get();
     const chats = {};
-    snap.forEach(doc => { const m = doc.data(); if(!chats[m.chatId]) chats[m.chatId] = { lastMsg: m, count: 0 }; chats[m.chatId].count++; });
-    if(!Object.keys(chats).length) { list.innerHTML = '<p>📭 Нет обращений</p>'; return; }
+    
+    // Группируем сообщения по пользователям
+    snap.forEach(doc => {
+      const m = doc.data();
+      if (!chats[m.chatId]) {
+        chats[m.chatId] = { lastMsg: m, count: 0 };
+      }
+      chats[m.chatId].count++;
+      // Обновляем последнее сообщение, если оно новее
+      if (m.createdAt && chats[m.chatId].lastMsg.createdAt) {
+         if (m.createdAt.toMillis() > chats[m.chatId].lastMsg.createdAt.toMillis()) {
+            chats[m.chatId].lastMsg = m;
+         }
+      }
+    });
+
+    // Получаем имена всех пользователей
+    const userIds = Object.keys(chats);
+    const namesMap = {};
+    
+    if (userIds.length > 0) {
+      await Promise.all(userIds.map(uid => 
+        db.collection('users').doc(uid).get().then(doc => {
+          namesMap[uid] = doc.exists ? (doc.data().name || 'Пользователь') : uid;
+        })
+      ));
+    }
+
+    // Рендерим список
+    list.innerHTML = '';
+    if (Object.keys(chats).length === 0) {
+      list.innerHTML = '<p>📭 Нет обращений</p>';
+      return;
+    }
+
     Object.values(chats).forEach(chat => {
       const m = chat.lastMsg;
+      const userName = namesMap[m.chatId] || m.chatId.substring(0, 8); // Если имени нет, показываем часть ID
       const d = m.createdAt ? m.createdAt.toDate().toLocaleString('ru-RU') : '';
+      
       const div = document.createElement('div');
       div.className = 'message-card';
-      div.innerHTML = `<h4>Пользователь: ${m.chatId.substring(0,8)}...</h4><div class="meta">📅 ${d} | Сообщений: ${chat.count}</div><div class="text">${m.subject ? '📌 '+m.subject : ''} ${m.text.substring(0,100)}...</div><button class="secondary-btn" onclick="window.openChat('${m.chatId}')" style="margin-top:10px">💬 Открыть чат</button>`;
+      div.innerHTML = `
+        <h4>💬 ${userName}</h4>
+        <div class="meta">📅 ${d} | Сообщений: ${chat.count}</div>
+        <div class="text">${m.subject ? '📌 '+m.subject : ''} ${m.text.substring(0, 100)}${m.text.length > 100 ? '...' : ''}</div>
+        <button class="secondary-btn" onclick="window.openChat('${m.chatId}')" style="margin-top:10px">Ответить</button>
+      `;
       list.appendChild(div);
     });
-  });
+  } catch (err) {
+    console.error(err);
+    list.innerHTML = `<p style="color:red">Ошибка загрузки: ${err.message}</p>`;
+  }
 };
 
+// ОТКРЫТИЕ ЧАТА (С ИМЕНЕМ В ЗАГОЛОВКЕ)
 window.openChat = function(chatId) {
   currentChatId = chatId;
   window.showSection('chat-view');
-  document.getElementById('chat-title').textContent = `💬 Чат с ${chatId.substring(0,8)}...`;
   document.getElementById('chat-input').value = '';
+  
+  // Загружаем имя пользователя для заголовка и пузырьков
+  db.collection('users').doc(chatId).get().then(doc => {
+     currentChatUserName = doc.exists ? (doc.data().name || 'Пользователь') : chatId;
+     document.getElementById('chat-title').textContent = `💬 Чат с ${currentChatUserName}`;
+  });
+
   renderChat(chatId);
 };
 
+// ОТРИСОВКА СООБЩЕНИЙ
 function renderChat(chatId) {
   const box = document.getElementById('chat-messages');
   box.innerHTML = '<p>⏳ Загрузка...</p>';
   if(chatUnsubscribe) chatUnsubscribe();
+  
   chatUnsubscribe = db.collection('messages').where('chatId', '==', chatId).onSnapshot(snap => {
     box.innerHTML = '';
     const msgs = [];
     snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
     msgs.sort((a, b) => (a.createdAt ? a.createdAt.toMillis() : 0) - (b.createdAt ? b.createdAt.toMillis() : 0));
+    
     if(!msgs.length) { box.innerHTML = '<p style="text-align:center;color:#888;margin-top:50px">💬 Начало переписки</p>'; return; }
+    
     msgs.forEach(m => {
       const isMe = (userRole === 'admin' && m.sender === 'admin') || (userRole !== 'admin' && m.sender === 'user');
       const align = isMe ? 'flex-end' : 'flex-start';
       const bg = isMe ? '#dcf8c6' : '#ffffff';
       const border = isMe ? 'border:1px solid #a5d6a7' : 'border:1px solid #ddd';
       const t = m.createdAt ? m.createdAt.toDate().toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : '';
-      box.innerHTML += `<div style="display:flex; justify-content:${align}; margin:8px 0;"><div style="max-width:70%; padding:10px 15px; border-radius:15px; ${bg}; ${border}; box-shadow:0 1px 2px rgba(0,0,0,0.1);"><div style="font-size:0.8em; color:#555; margin-bottom:4px;">${m.sender==='admin'?'👑 Админ':'👤 Пользователь'}</div><div style="white-space:pre-wrap;">${m.text}</div><div style="font-size:0.7em; color:#888; text-align:right; margin-top:4px;">${t}</div></div></div>`;
+      
+      // Используем currentChatUserName вместо "Пользователь"
+      const senderName = m.sender === 'admin' ? '👑 Админ' : currentChatUserName;
+
+      box.innerHTML += `<div style="display:flex; justify-content:${align}; margin:8px 0;"><div style="max-width:70%; padding:10px 15px; border-radius:15px; ${bg}; ${border}; box-shadow:0 1px 2px rgba(0,0,0,0.1);"><div style="font-size:0.8em; color:#555; margin-bottom:4px;">${senderName}</div><div style="white-space:pre-wrap;">${m.text}</div><div style="font-size:0.7em; color:#888; text-align:right; margin-top:4px;">${t}</div></div></div>`;
     });
     box.scrollTop = box.scrollHeight;
   });
