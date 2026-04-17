@@ -22,15 +22,106 @@ window.showSection = function(id) {
     s.classList.add('hidden');
     s.classList.remove('active');
   });
-  document.getElementById(id).classList.remove('hidden');
-  document.getElementById(id).classList.add('active');
+  const target = document.getElementById(id);
+  if (target) {
+    target.classList.remove('hidden');
+    target.classList.add('active');
+    window.scrollTo(0, 0);
+  }
+};
+
+window.showProfile = function() {
+  if (!currentUser) return;
+  document.getElementById('profile-email').textContent = currentUser.email;
+  document.getElementById('profile-role').textContent = userRole === 'admin' ? '👑 Администратор' : '👤 Пользователь';
+  
+  // Получаем дату регистрации
+  db.collection('users').doc(currentUser.uid).get().then(doc => {
+    if (doc.exists && doc.data().created) {
+      const date = doc.data().created.toDate();
+      document.getElementById('profile-date').textContent = date.toLocaleDateString('ru-RU');
+    } else {
+      document.getElementById('profile-date').textContent = 'Неизвестно';
+    }
+  });
+  
+  showSection('profile');
 };
 
 window.showAdminPanel = function() {
   if (userRole !== 'admin') return alert('Доступ запрещён');
   showSection('admin');
-  loadAdminList(); // Загружаем список
+  loadAdminList();
 };
+
+window.showMessages = function() {
+  if (userRole !== 'admin') return alert('Только для админа');
+  showSection('messages');
+  loadMessages();
+};
+
+// === СООБЩЕНИЯ ===
+document.addEventListener('DOMContentLoaded', () => {
+  const feedbackForm = document.getElementById('feedback-form');
+  if (feedbackForm) {
+    feedbackForm.addEventListener('submit', e => {
+      e.preventDefault();
+      if (!currentUser) {
+        alert('Сначала войдите в аккаунт');
+        showSection('auth');
+        return;
+      }
+      
+      const subject = document.getElementById('feedback-subject').value;
+      const message = document.getElementById('feedback-message').value;
+      
+      db.collection('messages').add({
+        userId: currentUser.uid,
+        userEmail: currentUser.email,
+        subject: subject,
+        message: message,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        read: false
+      }).then(() => {
+        alert('✅ Сообщение отправлено администратору!');
+        document.getElementById('feedback-subject').value = '';
+        document.getElementById('feedback-message').value = '';
+        showSection('home');
+      }).catch(err => alert('Ошибка: ' + err.message));
+    });
+  }
+});
+
+function loadMessages() {
+  const list = document.getElementById('messages-list');
+  list.innerHTML = '<p>Загрузка...</p>';
+  
+  db.collection('messages').orderBy('createdAt', 'desc').get().then(snap => {
+    list.innerHTML = '';
+    if (snap.empty) {
+      list.innerHTML = '<p>📭 Нет новых сообщений</p>';
+      return;
+    }
+    
+    snap.forEach(doc => {
+      const m = doc.data();
+      const date = m.createdAt ? m.createdAt.toDate().toLocaleString('ru-RU') : '...';
+      
+      const div = document.createElement('div');
+      div.className = 'message-card';
+      div.innerHTML = `
+        <h4>${m.subject}</h4>
+        <div class="meta">👤 ${m.userEmail} | 📅 ${date}</div>
+        <div class="text">${m.message}</div>
+        <button class="secondary-btn" style="margin-top:10px; font-size:0.9em;" 
+                onclick="this.parentElement.remove(); db.collection('messages').doc('${doc.id}').delete()">
+          ✓ Отмечено как прочитанное
+        </button>
+      `;
+      list.appendChild(div);
+    });
+  });
+}
 
 // === QR СКАНЕР ===
 window.startScanner = function() {
@@ -51,45 +142,45 @@ window.stopScanner = function() {
   showSection('home');
 };
 
-// === СПИСОК ДЛЯ АДМИНА ===
+// === СПИСОК АДМИНА ===
 function loadAdminList() {
   const listDiv = document.getElementById('admin-list');
-  listDiv.innerHTML = '<p>Загрузка базы...</p>';
+  listDiv.innerHTML = '<p>⏳ Загрузка...</p>';
   
   db.collection('memorials').get().then(snap => {
     listDiv.innerHTML = '';
     if (snap.empty) {
-      listDiv.innerHTML = '<p>Памятников пока нет.</p>';
+      listDiv.innerHTML = '<p>📭 Памятников нет</p>';
       return;
     }
     snap.forEach(doc => {
-      const data = doc.data();
+      const d = doc.data();
       const card = document.createElement('div');
       card.className = 'admin-card';
       card.innerHTML = `
-        <h4>${data.name}</h4>
-        <p>${data.years}</p>
-        <div id="qr-${doc.id}" style="margin: 10px auto;"></div>
-        <button class="secondary-btn" onclick="loadMemorial('${doc.id}')">✏️ Редактировать</button>
+        <h4>${d.name || 'Без имени'}</h4>
+        <p>${d.years || ''}</p>
+        <div id="qr-${doc.id}" style="margin:10px auto;"></div>
+        <button class="secondary-btn" onclick="window.loadMemorial('${doc.id}')">✏️ Изменить</button>
       `;
       listDiv.appendChild(card);
       
-      // Генерируем QR для каждого в списке
       setTimeout(() => {
-        const url = window.location.href.split('?')[0] + '?id=' + doc.id;
-        new QRCode(document.getElementById(`qr-${doc.id}`), { text: url, width: 100, height: 100 });
-      }, 100);
+        const url = `${window.location.origin}${window.location.pathname}?id=${doc.id}`;
+        if (typeof QRCode !== 'undefined') {
+          new QRCode(document.getElementById(`qr-${doc.id}`), { text: url, width: 90, height: 90 });
+        }
+      }, 50);
     });
   });
 }
 
-// === ЗАГРУЗКА ПАМЯТНИКА ===
+// === ПАМЯТНИК ===
 window.loadMemorial = function(id) {
   currentMemorialId = id;
   showSection('memorial');
   
-  // Очистка полей
-  document.getElementById('m-name').textContent = '...';
+  document.getElementById('m-name').textContent = '⏳ Загрузка...';
   document.getElementById('m-years').textContent = '';
   document.getElementById('m-bio').textContent = '';
   document.getElementById('family-tree-display').innerHTML = '';
@@ -103,37 +194,33 @@ window.loadMemorial = function(id) {
     }
     const d = doc.data();
     
-    // Заполнение данных
     document.getElementById('m-name').textContent = d.name || '';
     document.getElementById('m-years').textContent = d.years || '';
     document.getElementById('m-bio').textContent = d.details || '';
     
-    // Геолокация
     const geoBtn = document.getElementById('btn-geo');
     if (d.lat && d.lng) {
       geoBtn.classList.remove('hidden');
-      geoBtn.onclick = () => window.open(`https://maps.google.com/?q=${d.lat},${d.lng}`);
+      geoBtn.onclick = () => window.open(`https://maps.google.com/?q=${d.lat},${d.lng}`, '_blank');
     } else {
       geoBtn.classList.add('hidden');
     }
 
-    // Семейное древо (просмотр)
     renderFamilyTree(d.family || []);
     
-    // QR код
-    const url = window.location.href.split('?')[0] + '?id=' + id;
-    new QRCode(document.getElementById('memorial-qr'), { text: url, width: 150, height: 150 });
+    const url = `${window.location.origin}${window.location.pathname}?id=${id}`;
+    if (typeof QRCode !== 'undefined') {
+      new QRCode(document.getElementById('memorial-qr'), { text: url, width: 150, height: 150 });
+    }
 
-    // Заполнение полей для админа
     if (userRole === 'admin') {
       document.getElementById('edit-name').value = d.name || '';
       document.getElementById('edit-years').value = d.years || '';
       document.getElementById('edit-details').value = d.details || '';
       document.getElementById('edit-lat').value = d.lat || '';
       document.getElementById('edit-lng').value = d.lng || '';
-      // Очистить и заполнить список редактирования
       document.getElementById('edit-family-list').innerHTML = '';
-      (d.family || []).forEach(f => addFamilyMember('edit', f.relation, f.name, f.years));
+      (d.family || []).forEach(f => window.addFamilyMember('edit', f.relation, f.name, f.years));
     }
   });
 };
@@ -141,11 +228,13 @@ window.loadMemorial = function(id) {
 // === СЕМЕЙНОЕ ДРЕВО ===
 function renderFamilyTree(family) {
   const container = document.getElementById('family-tree-display');
-  if (!family.length) { container.innerHTML = '<p style="color:#888">Пусто</p>'; return; }
+  if (!family.length) { container.innerHTML = '<p style="color:#888; font-style:italic;">Нет данных</p>'; return; }
   const map = { father:'Отец', mother:'Мать', spouse:'Супруг(а)', son:'Сын', daughter:'Дочь', brother:'Брат', sister:'Сестра' };
-  let html = '<ul style="list-style:none;">';
+  let html = '<ul style="list-style:none; padding-left:0;">';
   family.forEach(f => {
-    html += `<li style="margin:5px 0;"><b>${map[f.relation]||f.relation}:</b> ${f.name} ${f.years?'('+f.years+')':''}</li>`;
+    html += `<li style="margin:8px 0; padding:8px; background:#f9f9f9; border-radius:5px;">
+      <b>${map[f.relation]||f.relation}:</b> ${f.name} ${f.years?`<span style="color:#666">(${f.years})</span>`:''}
+    </li>`;
   });
   container.innerHTML = html + '</ul>';
 }
@@ -153,27 +242,26 @@ function renderFamilyTree(family) {
 window.addFamilyMember = function(mode, rel='', name='', years='') {
   const listId = mode === 'edit' ? 'edit-family-list' : 'add-family-list';
   const div = document.createElement('div');
-  div.style.cssText = "display:flex; gap:5px; margin:5px 0;";
+  div.style.cssText = "display:flex; gap:8px; margin:8px 0; align-items:center; flex-wrap:wrap;";
   div.innerHTML = `
-    <select class="f-rel" style="width:30%">
+    <select class="f-rel" style="flex:1; min-width:100px;">
       <option value="father" ${rel=='father'?'selected':''}>Отец</option>
       <option value="mother" ${rel=='mother'?'selected':''}>Мать</option>
       <option value="spouse" ${rel=='spouse'?'selected':''}>Супруг(а)</option>
       <option value="son" ${rel=='son'?'selected':''}>Сын</option>
       <option value="daughter" ${rel=='daughter'?'selected':''}>Дочь</option>
     </select>
-    <input class="f-name" placeholder="ФИО" value="${name}">
-    <input class="f-years" placeholder="Годы" value="${years}" style="width:25%">
-    <button type="button" class="secondary-btn" onclick="this.parentElement.remove()">✕</button>
+    <input class="f-name" placeholder="ФИО" value="${name}" style="flex:2;">
+    <input class="f-years" placeholder="Годы" value="${years}" style="flex:1;">
+    <button type="button" class="secondary-btn" onclick="this.parentElement.remove()" style="padding:5px 10px;">✕</button>
   `;
   document.getElementById(listId).appendChild(div);
 };
 
-// === СОХРАНЕНИЕ (АДМИН) ===
+// === СОХРАНЕНИЕ ===
 window.saveMemorial = function() {
-  if (userRole !== 'admin') return;
+  if (userRole !== 'admin') return alert('Нет прав');
   
-  // Сбор родственников
   const family = [];
   document.querySelectorAll('#edit-family-list > div').forEach(div => {
     family.push({
@@ -191,12 +279,12 @@ window.saveMemorial = function() {
     lng: document.getElementById('edit-lng').value,
     family: family
   }, {merge: true}).then(() => {
-    alert('Сохранено!');
-    loadMemorial(currentMemorialId);
-  });
+    alert('✅ Сохранено!');
+    window.loadMemorial(currentMemorialId);
+  }).catch(err => alert('Ошибка: ' + err.message));
 };
 
-// === ДОБАВЛЕНИЕ НОВОГО (АДМИН) ===
+// === ДОБАВЛЕНИЕ ===
 document.addEventListener('DOMContentLoaded', () => {
   const addForm = document.getElementById('add-memorial');
   if (addForm) {
@@ -204,6 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       if (userRole !== 'admin') return;
       const id = document.getElementById('new-id').value.trim();
+      if (!id) return alert('Введите ID');
       
       const family = [];
       document.querySelectorAll('#add-family-list > div').forEach(div => {
@@ -222,23 +311,14 @@ document.addEventListener('DOMContentLoaded', () => {
         lng: document.getElementById('new-lng').value,
         family: family
       }).then(() => {
-        alert('Добавлено!');
+        alert('✅ Добавлено!');
         e.target.reset();
         document.getElementById('add-family-list').innerHTML = '';
         showAdminPanel();
-      });
+      }).catch(err => alert('Ошибка: ' + err.message));
     });
   }
 });
-
-// === КНОПКА "НАДО ИЗМЕНИТЬ?" ===
-window.requestChange = function() {
-  const name = document.getElementById('m-name').textContent;
-  const subject = encodeURIComponent(`Запрос на изменение: ${name}`);
-  const body = encodeURIComponent(`Здравствуйте!\nЯ хочу изменить информацию о памятнике "${name}".\n\nОпишите, что нужно исправить:\n...`);
-  // Замени admin@example.com на свою почту
-  window.location.href = `mailto:admin@example.com?subject=${subject}&body=${body}`;
-};
 
 // === АВТОРИЗАЦИЯ ===
 window.showAuth = function(mode) {
@@ -259,11 +339,20 @@ document.getElementById('auth-form').addEventListener('submit', e => {
   const pass = document.getElementById('password').value;
   const isReg = document.getElementById('auth-submit').textContent === 'Создать';
   
-  const promise = isReg ? auth.createUserWithEmailAndPassword(email, pass) : auth.signInWithEmailAndPassword(email, pass);
+  const promise = isReg 
+    ? auth.createUserWithEmailAndPassword(email, pass) 
+    : auth.signInWithEmailAndPassword(email, pass);
+    
   promise.then(cred => {
-    if (isReg) db.collection('users').doc(cred.user.uid).set({ email, role: 'user' });
+    if (isReg) {
+      db.collection('users').doc(cred.user.uid).set({ 
+        email, 
+        role: 'user',
+        created: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
     showSection('home');
-  }).catch(err => alert(err.message));
+  }).catch(err => alert('Ошибка: ' + err.message));
 });
 
 window.logout = function() {
@@ -289,8 +378,13 @@ function updateUI() {
   document.getElementById('btn-register').classList.toggle('hidden', !!currentUser);
   document.getElementById('btn-logout').classList.toggle('hidden', !currentUser);
   document.getElementById('btn-home').classList.toggle('hidden', !currentUser);
+  document.getElementById('btn-profile').classList.toggle('hidden', !currentUser);
   document.getElementById('btn-admin').classList.toggle('hidden', userRole !== 'admin');
+  document.getElementById('btn-messages').classList.toggle('hidden', userRole !== 'admin');
   
-  document.getElementById('auth-extra').classList.toggle('hidden', !currentUser);
-  document.getElementById('admin-extra').classList.toggle('hidden', userRole !== 'admin');
+  const authExtra = document.getElementById('auth-extra');
+  if (authExtra) authExtra.classList.toggle('hidden', !currentUser);
+  
+  const adminExtra = document.getElementById('admin-extra');
+  if (adminExtra) adminExtra.classList.toggle('hidden', userRole !== 'admin');
 }
