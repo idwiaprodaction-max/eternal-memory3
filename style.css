@@ -232,3 +232,9 @@ footer {
     border-radius: 4px;
     white-space: pre-wrap;
 }
+
+/* Чаты и сообщения */
+.message-card { background: white; border: 1px solid #ddd; border-left: 4px solid #3498db; padding: 15px; margin: 10px 0; border-radius: 6px; }
+.message-card h4 { margin: 0 0 5px 0; color: var(--primary); }
+.message-card .meta { color: #888; font-size: 0.85em; margin-bottom: 8px; }
+.message-card .text { background: #f9f9f9; padding: 10px; border-radius: 4px; white-space: pre-wrap; font-size: 0.95em; }
