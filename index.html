@@ -13,13 +13,14 @@
 </head>
 <body>
     <header>
-        <!-- ЛОГОТИП ТЕПЕРЬ КЛИКАБЕЛЬНЫЙ -> НА ГЛАВНУЮ -->
         <div class="logo" onclick="showSection('home')" style="cursor: pointer;">🕊️ Вечная память</div>
         <nav id="nav">
             <button id="btn-home" class="hidden" onclick="showSection('home')">🏠 Главная</button>
             <button id="btn-login" onclick="showAuth()">Вход</button>
             <button id="btn-register" onclick="showAuth('register')">Регистрация</button>
+            <button id="btn-profile" class="hidden" onclick="showProfile()">👤 Профиль</button>
             <button id="btn-admin" class="hidden" onclick="showAdminPanel()">🛠 Админка</button>
+            <button id="btn-messages" class="hidden" onclick="showMessages()">📩 Сообщения</button>
             <button id="btn-logout" class="hidden" onclick="logout()">Выйти</button>
         </nav>
     </header>
@@ -61,6 +62,29 @@
             <p class="switch-auth" id="switch-auth" onclick="toggleAuthMode()">Нет аккаунта? Зарегистрироваться</p>
         </section>
 
+        <!-- ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ -->
+        <section id="profile" class="hidden">
+            <h2>👤 Мой профиль</h2>
+            <div class="profile-card">
+                <p><strong>Email:</strong> <span id="profile-email">...</span></p>
+                <p><strong>Роль:</strong> <span id="profile-role">...</span></p>
+                <p><strong>Дата регистрации:</strong> <span id="profile-date">...</span></p>
+                <button class="secondary-btn" onclick="logout()">🚪 Выйти из аккаунта</button>
+            </div>
+        </section>
+
+        <!-- ФОРМА ОБРАТНОЙ СВЯЗИ -->
+        <section id="feedback" class="hidden">
+            <h2>✉️ Написать администратору</h2>
+            <p style="color:#666; margin-bottom:20px;">Есть вопросы или предложения? Напишите нам!</p>
+            <form id="feedback-form">
+                <input type="text" id="feedback-subject" placeholder="Тема сообщения" required>
+                <textarea id="feedback-message" placeholder="Ваше сообщение..." style="height:150px;" required></textarea>
+                <button type="submit" class="primary-btn">📤 Отправить</button>
+                <button type="button" class="secondary-btn" onclick="showSection('home')">Отмена</button>
+            </form>
+        </section>
+
         <!-- СКАНЕР -->
         <section id="scanner" class="hidden">
             <h2>Наведите камеру</h2>
@@ -68,19 +92,19 @@
             <button class="secondary-btn" onclick="stopScanner()">Закрыть</button>
         </section>
 
-        <!-- СПИСОК ПАМЯТНИКОВ (АДМИН) -->
+        <!-- АДМИНКА: СПИСОК ПАМЯТНИКОВ -->
         <section id="admin" class="hidden">
-            <h2>Управление памятниками</h2>
+            <h2>🛠 Управление памятниками</h2>
             <div style="margin-bottom: 20px;">
                 <button class="primary-btn" onclick="showSection('add-new')">➕ Добавить новый</button>
+                <button class="secondary-btn" onclick="showMessages()">📩 Сообщения от пользователей</button>
             </div>
             <div id="admin-list" class="admin-grid">
-                <!-- Сюда скрипт добавит карточки -->
                 <p>Загрузка...</p>
             </div>
         </section>
 
-        <!-- ФОРМА ДОБАВЛЕНИЯ НОВОГО (АДМИН) -->
+        <!-- ДОБАВЛЕНИЕ ПАМЯТНИКА -->
         <section id="add-new" class="hidden">
             <h2>Добавить памятник</h2>
             <form id="add-memorial">
@@ -99,7 +123,7 @@
             </form>
         </section>
 
-        <!-- СТРАНИЦА ПАМЯТНИКА (ВСЕ) -->
+        <!-- СТРАНИЦА ПАМЯТНИКА -->
         <section id="memorial" class="hidden">
             <button class="secondary-btn" style="margin-bottom:15px;" onclick="showSection('home')">⬅ На главную</button>
             
@@ -118,21 +142,20 @@
                 </div>
             </div>
 
-            <!-- КНОПКА "НАДО ИЗМЕНИТЬ?" -->
-            <div style="margin-top: 30px; padding: 15px; background: #f9f9f9; border-radius: 8px; text-align: center;">
-                <p style="margin-bottom: 10px; color: #666;">Нашли ошибку или хотите дополнить информацию?</p>
-                <button class="secondary-btn" onclick="requestChange()">✉️ Написать администратору</button>
+            <!-- КНОПКА "НАПИСАТЬ АДМИНУ" -->
+            <div style="margin-top: 30px; padding: 15px; background: #f0f4f8; border-radius: 8px; text-align: center; border: 1px solid #d0d8e0;">
+                <p style="margin-bottom: 10px; color: #555;">💬 Нашли ошибку или хотите дополнить?</p>
+                <button class="secondary-btn" onclick="showSection('feedback')">✉️ Написать администратору</button>
             </div>
             
-            <!-- QR код (виден всем) -->
             <div style="margin-top:30px; text-align:center;">
-                <p style="color:#888; font-size:0.9em;">QR-код этого памятника</p>
+                <p style="color:#888; font-size:0.9em;">QR-код памятника</p>
                 <div id="memorial-qr" style="display:inline-block; margin-top:10px;"></div>
             </div>
 
-            <!-- АДМИН ПАНЕЛЬ РЕДАКТИРОВАНИЯ -->
+            <!-- АДМИН ПАНЕЛЬ -->
             <div id="admin-extra" class="hidden" style="margin-top:30px; padding-top:20px; border-top:2px dashed #aaa;">
-                <h3 style="color:red;">🔧 Режим администратора</h3>
+                <h3 style="color:red;">🔧 Редактирование</h3>
                 <input type="text" id="edit-name" placeholder="ФИО">
                 <input type="text" id="edit-years" placeholder="Годы">
                 <textarea id="edit-details" placeholder="Биография"></textarea>
@@ -146,9 +169,18 @@
                 <button type="button" class="secondary-btn" onclick="addFamilyMember('edit')">+ Родственник</button>
                 
                 <div style="margin-top:20px;">
-                    <button class="primary-btn" onclick="saveMemorial()">💾 Сохранить изменения</button>
+                    <button class="primary-btn" onclick="saveMemorial()">💾 Сохранить</button>
                     <button class="secondary-btn" onclick="showAdminPanel()">🔙 В список</button>
                 </div>
+            </div>
+        </section>
+
+        <!-- СООБЩЕНИЯ (АДМИН) -->
+        <section id="messages" class="hidden">
+            <h2>📩 Сообщения от пользователей</h2>
+            <button class="secondary-btn" onclick="showAdminPanel()">🔙 Назад в админку</button>
+            <div id="messages-list" style="margin-top:20px;">
+                <p>Загрузка...</p>
             </div>
         </section>
     </main>
