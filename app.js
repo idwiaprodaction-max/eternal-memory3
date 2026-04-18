@@ -30,69 +30,7 @@ window.showSection = function(id) {
   document.querySelectorAll('main > section').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
   const t = document.getElementById(id);
   if (t) { t.classList.remove('hidden'); t.classList.add('active'); window.scrollTo(0, 0); }
-  // Если перешли на главную - обновляем примеры
   if (id === 'home') loadHomeExamples();
-};
-
-// Функция создания примеров в базе (запустить один раз)
-window.createExampleMemorials = async function() {
-  const examples = [
-    {
-      id: 'ivanov',
-      name: 'Иванов Иван Иванович',
-      years: '1940 — 2015',
-      details: 'Ветеран труда, проработал 40 лет на заводе. Любящий отец двоих детей и дедушка троих внуков.',
-      lat: '55.7558',
-      lng: '37.6173',
-      family: [
-        { relation: 'spouse', name: 'Иванова Анна Петровна', years: '1945 — 2018' },
-        { relation: 'son', name: 'Иванов Сергей Иванович', years: '1970' },
-        { relation: 'daughter', name: 'Иванова Елена Ивановна', years: '1975' }
-      ]
-    },
-    {
-      id: 'petrova',
-      name: 'Петрова Мария Сергеевна',
-      years: '1952 — 2020',
-      details: 'Учительница начальных классов с 30-летним стажем. Вырастила двоих детей.',
-      lat: '59.9343',
-      lng: '30.3351',
-      family: [
-        { relation: 'spouse', name: 'Петров Николай Иванович', years: '1950 — 2019' },
-        { relation: 'son', name: 'Петров Андрей Николаевич', years: '1975' },
-        { relation: 'daughter', name: 'Петрова Ольга Николаевна', years: '1980' }
-      ]
-    },
-    {
-      id: 'sidorov',
-      name: 'Сидоров Пётр Николаевич',
-      years: '1935 — 2018',
-      details: 'Фронтовик, участник Великой Отечественной войны. Награждён орденами и медалями.',
-      lat: '55.0084',
-      lng: '82.9357',
-      family: [
-        { relation: 'spouse', name: 'Сидорова Валентина Ивановна', years: '1938' },
-        { relation: 'son', name: 'Сидоров Михаил Петрович', years: '1960' },
-        { relation: 'grandson', name: 'Сидоров Артём Михайлович', years: '1985' }
-      ]
-    }
-  ];
-
-  let created = 0;
-  for (const ex of examples) {
-    const doc = await db.collection('memorials').doc(ex.id).get();
-    if (!doc.exists) {
-      await db.collection('memorials').doc(ex.id).set({
-        ...ex,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      created++;
-      console.log(`✅ Создан пример: ${ex.name}`);
-    }
-  }
-  
-  alert(`✅ Создано ${created} примеров памятников!\nТеперь кнопки "Редактировать" будут работать.`);
-  loadHomeExamples();
 };
 
 function updateUI() {
@@ -156,12 +94,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     let cred;
     if (isReg) {
       cred = await auth.createUserWithEmailAndPassword(email, pass);
-      await db.collection('users').doc(cred.user.uid).set({ 
-        email, 
-        name, 
-        role: 'user', 
-        created: firebase.firestore.FieldValue.serverTimestamp() 
-      });
+      await db.collection('users').doc(cred.user.uid).set({ email, name, role: 'user', created: firebase.firestore.FieldValue.serverTimestamp() });
     } else {
       cred = await auth.signInWithEmailAndPassword(email, pass);
     }
@@ -174,10 +107,8 @@ window.logout = function() { auth.signOut(); window.showSection('home'); };
 auth.onAuthStateChanged(async (user) => {
   currentUser = user;
   if (user) {
-    try { 
-      const doc = await db.collection('users').doc(user.uid).get(); 
-      userRole = doc.exists ? doc.data().role : 'user'; 
-    } catch (e) { userRole = 'user'; }
+    try { const doc = await db.collection('users').doc(user.uid).get(); userRole = doc.exists ? doc.data().role : 'user'; } 
+    catch (e) { userRole = 'user'; }
   } else { userRole = 'guest'; }
   updateUI();
   loadHomeExamples();
@@ -201,8 +132,7 @@ function loadHomeExamples() {
     const card = document.createElement('div');
     card.className = 'memorial-card';
     card.onclick = (e) => {
-      // Если кликнули не по кнопке редактирования
-      if (!e.target.classList.contains('edit-example-btn')) {
+      if (!e.target.classList.contains('edit-example-btn') && !e.target.closest('.edit-example-btn')) {
         window.loadMemorial(ex.id);
       }
     };
@@ -225,7 +155,31 @@ function loadHomeExamples() {
     `;
     grid.appendChild(card);
   });
+
+  if (userRole === 'admin') {
+    const btnContainer = document.getElementById('create-examples-btn');
+    if (btnContainer) btnContainer.style.display = 'block';
+  }
 }
+
+window.createExampleMemorials = async function() {
+  const examples = [
+    { id: 'ivanov', name: 'Иванов Иван Иванович', years: '1940 — 2015', details: 'Ветеран труда, проработал 40 лет на заводе. Любящий отец двоих детей и дедушка троих внуков.', lat: '55.7558', lng: '37.6173', family: [{ relation: 'spouse', name: 'Иванова Анна Петровна', years: '1945 — 2018' }, { relation: 'son', name: 'Иванов Сергей Иванович', years: '1970' }, { relation: 'daughter', name: 'Иванова Елена Ивановна', years: '1975' }] },
+    { id: 'petrova', name: 'Петрова Мария Сергеевна', years: '1952 — 2020', details: 'Учительница начальных классов с 30-летним стажем. Вырастила двоих детей.', lat: '59.9343', lng: '30.3351', family: [{ relation: 'spouse', name: 'Петров Николай Иванович', years: '1950 — 2019' }, { relation: 'son', name: 'Петров Андрей Николаевич', years: '1975' }, { relation: 'daughter', name: 'Петрова Ольга Николаевна', years: '1980' }] },
+    { id: 'sidorov', name: 'Сидоров Пётр Николаевич', years: '1935 — 2018', details: 'Фронтовик, участник Великой Отечественной войны. Награждён орденами и медалями.', lat: '55.0084', lng: '82.9357', family: [{ relation: 'spouse', name: 'Сидорова Валентина Ивановна', years: '1938' }, { relation: 'son', name: 'Сидоров Михаил Петрович', years: '1960' }, { relation: 'grandson', name: 'Сидоров Артём Михайлович', years: '1985' }] }
+  ];
+
+  let created = 0;
+  for (const ex of examples) {
+    const doc = await db.collection('memorials').doc(ex.id).get();
+    if (!doc.exists) {
+      await db.collection('memorials').doc(ex.id).set({ ...ex, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      created++;
+    }
+  }
+  alert(`✅ Создано ${created} примеров!\nТеперь кнопки "Редактировать" работают.`);
+  loadHomeExamples();
+};
 
 // ==========================================
 // 5. ПРОФИЛЬ
@@ -241,17 +195,9 @@ window.showProfile = async function() {
     if (doc.exists) {
       const data = doc.data();
       document.getElementById('profile-name-input').value = data.name || '';
-      
-      // ✅ ПРАВИЛЬНАЯ ДАТА РЕГИСТРАЦИИ
       if (data.created && data.created.toDate) {
         const date = data.created.toDate();
-        document.getElementById('profile-date').textContent = date.toLocaleDateString('ru-RU', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+        document.getElementById('profile-date').textContent = date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
       } else {
         document.getElementById('profile-date').textContent = 'Неизвестно';
       }
@@ -259,20 +205,15 @@ window.showProfile = async function() {
       document.getElementById('profile-name-input').value = '';
       document.getElementById('profile-date').textContent = 'Неизвестно';
     }
-  } catch (e) { 
-    console.error(e); 
-    document.getElementById('profile-date').textContent = 'Ошибка загрузки';
-  }
+  } catch (e) { console.error(e); document.getElementById('profile-date').textContent = 'Ошибка'; }
 };
 
 window.saveProfileName = async function() {
   if (!currentUser) return;
   const newName = document.getElementById('profile-name-input').value.trim();
   if (!newName) return alert('Введите имя');
-  try { 
-    await db.collection('users').doc(currentUser.uid).update({ name: newName }); 
-    alert('✅ Имя сохранено!'); 
-  } catch (e) { alert('Ошибка: ' + e.message); }
+  try { await db.collection('users').doc(currentUser.uid).update({ name: newName }); alert('✅ Имя сохранено!'); } 
+  catch (e) { alert('Ошибка: ' + e.message); }
 };
 
 // ==========================================
@@ -290,6 +231,10 @@ window.loadMemorial = async function(id) {
   document.getElementById('edit-family-list').innerHTML = '';
   document.getElementById('btn-geo').classList.add('hidden');
   if(document.getElementById('auth-extra')) document.getElementById('auth-extra').classList.add('hidden');
+
+  // Удаляем старую кнопку редактирования если есть
+  const oldBtn = document.querySelector('.edit-memorial-btn');
+  if (oldBtn) oldBtn.remove();
 
   try {
     const doc = await db.collection('memorials').doc(id).get();
@@ -329,9 +274,7 @@ window.loadMemorial = async function(id) {
         };
         
         const feedbackSection = document.querySelector('#memorial > div:nth-child(4)');
-        if (feedbackSection && !document.querySelector('.edit-memorial-btn')) {
-          feedbackSection.after(editBtn);
-        }
+        if (feedbackSection) feedbackSection.after(editBtn);
       }
     }
 
@@ -364,12 +307,9 @@ window.saveMemorial = async function() {
 
 window.deleteMemorial = async function() {
   if (userRole !== 'admin') return;
-  if (!confirm('⚠️ Вы уверены? Это действие нельзя отменить.')) return;
-  try {
-    await db.collection('memorials').doc(currentMemorialId).delete();
-    alert('🗑️ Памятник удален');
-    window.showAdminPanel();
-  } catch (e) { alert('Ошибка удаления: ' + e.message); }
+  if (!confirm('⚠️ Удалить этот памятник навсегда?')) return;
+  try { await db.collection('memorials').doc(currentMemorialId).delete(); alert('🗑️ Удалено'); window.showAdminPanel(); } 
+  catch (e) { alert('Ошибка: ' + e.message); }
 };
 
 window.showAdminPanel = function() {
@@ -407,11 +347,9 @@ function loadAdminList() {
 }
 
 window.deleteMemorialById = async function(id) {
-  if (!confirm('Удалить этот памятник навсегда?')) return;
-  try {
-    await db.collection('memorials').doc(id).delete();
-    loadAdminList();
-  } catch (e) { alert('Ошибка: ' + e.message); }
+  if (!confirm('Удалить навсегда?')) return;
+  try { await db.collection('memorials').doc(id).delete(); loadAdminList(); } 
+  catch (e) { alert('Ошибка: ' + e.message); }
 };
 
 document.getElementById('add-memorial').addEventListener('submit', async (e) => {
@@ -480,7 +418,7 @@ window.startScanner = function() {
 window.stopScanner = function() { if (qrScanner) qrScanner.stop().catch(()=>{}); window.showSection('home'); };
 
 // ==========================================
-// 9. ЧАТЫ
+// 9. ЧАТЫ + 🗑️ УДАЛЕНИЕ СООБЩЕНИЙ
 // ==========================================
 document.getElementById('feedback-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -496,34 +434,19 @@ window.loadUserMessages = function() {
   window.showSection('user-messages');
   const list = document.getElementById('user-msg-list');
   list.innerHTML = '<p>⏳ Загрузка...</p>';
-  
   if (userMsgUnsubscribe) userMsgUnsubscribe();
 
-  userMsgUnsubscribe = db.collection('messages')
-    .where('chatId', '==', currentUser.uid)
-    .orderBy('createdAt', 'desc')
-    .onSnapshot(snap => {
-      list.innerHTML = '';
-      const msgs = [];
-      snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
-      msgs.sort((a, b) => (b.createdAt ? b.createdAt.toMillis() : 0) - (a.createdAt ? a.createdAt.toMillis() : 0));
-      
-      if (!msgs.length) { list.innerHTML = '<p>📭 Нет сообщений</p>'; return; }
-      
-      msgs.forEach(m => {
-        const d = m.createdAt ? m.createdAt.toDate().toLocaleString('ru-RU') : '';
-        const c = m.sender === 'admin' ? '#c0392b' : '#3498db';
-        list.innerHTML += `
-          <div class="message-card" style="border-left-color: ${c}">
-            <h4>${m.subject || 'Сообщение'}</h4>
-            <div class="meta">${m.sender==='admin'?'👑 Админ':'👤 Вы'} | ${d}</div>
-            <div class="text">${m.text}</div>
-          </div>`;
-      });
-    }, err => {
-      console.error(err);
-      list.innerHTML = `<p style="color:red">❌ Ошибка загрузки</p>`;
+  userMsgUnsubscribe = db.collection('messages').where('chatId', '==', currentUser.uid).orderBy('createdAt', 'desc').onSnapshot(snap => {
+    list.innerHTML = '';
+    const msgs = []; snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
+    msgs.sort((a, b) => (b.createdAt ? b.createdAt.toMillis() : 0) - (a.createdAt ? a.createdAt.toMillis() : 0));
+    if (!msgs.length) { list.innerHTML = '<p>📭 Нет сообщений</p>'; return; }
+    msgs.forEach(m => {
+      const d = m.createdAt ? m.createdAt.toDate().toLocaleString('ru-RU') : '';
+      const c = m.sender === 'admin' ? '#c0392b' : '#3498db';
+      list.innerHTML += `<div class="message-card" style="border-left-color: ${c}"><h4>${m.subject || 'Сообщение'}</h4><div class="meta">${m.sender==='admin'?'👑 Админ':'👤 Вы'} | ${d}</div><div class="text">${m.text}</div></div>`;
     });
+  }, err => { list.innerHTML = `<p style="color:red">❌ Ошибка</p>`; });
 };
 
 window.showAdminChats = async function() {
@@ -567,6 +490,7 @@ window.openChat = async function(chatId) {
   renderChat(chatId);
 };
 
+// ✅ ОТРИСОВКА ЧАТА С КНОПКОЙ УДАЛЕНИЯ
 function renderChat(chatId) {
   const box = document.getElementById('chat-messages');
   box.innerHTML = '<p>⏳ Загрузка...</p>';
@@ -589,17 +513,38 @@ function renderChat(chatId) {
       const t = m.createdAt ? m.createdAt.toDate().toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : '';
       const senderName = m.sender === 'admin' ? '👑 Админ' : currentChatUserName;
 
-      box.innerHTML += `<div style="display:flex; justify-content:${align}; margin:8px 0;">
-        <div style="max-width:70%; padding:12px 16px; border-radius:18px; background:${bg}; color:${textColor}; ${border}; box-shadow:0 4px 12px rgba(0,0,0,0.3);">
-          <div style="font-size:0.8em; opacity:0.8; margin-bottom:4px; font-weight:bold;">${senderName}</div>
-          <div style="white-space:pre-wrap; line-height:1.5;">${m.text}</div>
-          <div style="font-size:0.7em; color:${timeColor}; text-align:right; margin-top:6px;">${t}</div>
+      // 🗑️ Кнопка удаления (только для админа)
+      let deleteBtn = '';
+      if (userRole === 'admin') {
+        deleteBtn = `<button onclick="window.deleteMessage('${m.id}')" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:1.1em; margin-left:6px; opacity:0.5; transition:0.2s; padding:0;" title="Удалить сообщение">🗑️</button>`;
+      }
+
+      box.innerHTML += `<div style="display:flex; justify-content:${align}; margin:8px 0; align-items:flex-end;">
+        <div style="max-width:75%; padding:12px 16px; border-radius:18px; background:${bg}; color:${textColor}; ${border}; box-shadow:0 4px 12px rgba(0,0,0,0.3); display:flex; align-items:flex-end; gap:6px;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:0.8em; opacity:0.8; margin-bottom:4px; font-weight:bold;">${senderName}</div>
+            <div style="white-space:pre-wrap; line-height:1.5; word-break:break-word;">${m.text}</div>
+            <div style="font-size:0.7em; color:${timeColor}; text-align:right; margin-top:6px;">${t}</div>
+          </div>
+          ${deleteBtn}
         </div>
       </div>`;
     });
     box.scrollTop = box.scrollHeight;
   }, err => { box.innerHTML = `<p style="color:#ef4444">❌ Ошибка чата</p>`; });
 }
+
+// ✅ ФУНКЦИЯ УДАЛЕНИЯ СООБЩЕНИЯ
+window.deleteMessage = async function(msgId) {
+  if (userRole !== 'admin') return;
+  if (!confirm('🗑️ Удалить это сообщение навсегда?')) return;
+  try {
+    await db.collection('messages').doc(msgId).delete();
+    // onSnapshot автоматически уберёт сообщение из чата у всех
+  } catch (e) {
+    alert('Ошибка удаления: ' + e.message);
+  }
+};
 
 window.sendChatMessage = function() {
   const input = document.getElementById('chat-input');
