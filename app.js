@@ -22,7 +22,7 @@ let currentChatId = null;
 let currentChatUserName = "Пользователь";
 let qrScanner = null;
 let chatUnsubscribe = null;
-let userMsgUnsubscribe = null; // Для отписки от сообщений пользователя
+let userMsgUnsubscribe = null;
 
 // ==========================================
 // 2. НАВИГАЦИЯ И UI
@@ -172,7 +172,32 @@ window.loadMemorial = async function(id) {
     const url = `${window.location.origin}${window.location.pathname}?id=${id}`;
     if (typeof QRCode !== 'undefined') new QRCode(document.getElementById('memorial-qr'), { text: url, width: 150, height: 150 });
     
-    if (currentUser) document.getElementById('auth-extra').classList.remove('hidden');
+    if (currentUser) {
+      document.getElementById('auth-extra').classList.remove('hidden');
+      
+      // ✅ КНОПКА РЕДАКТИРОВАНИЯ ДЛЯ АДМИНА
+      if (userRole === 'admin') {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'edit-memorial-btn';
+        editBtn.innerHTML = '✏️ Редактировать памятник';
+        editBtn.onclick = function() {
+          document.getElementById('edit-name').value = d.name || '';
+          document.getElementById('edit-years').value = d.years || '';
+          document.getElementById('edit-details').value = d.details || '';
+          document.getElementById('edit-lat').value = d.lat || '';
+          document.getElementById('edit-lng').value = d.lng || '';
+          document.getElementById('edit-family-list').innerHTML = '';
+          (d.family || []).forEach(f => window.addFamilyMember('edit', f.relation, f.name, f.years));
+          document.getElementById('admin-extra').classList.remove('hidden');
+          document.getElementById('admin-extra').scrollIntoView({ behavior: 'smooth' });
+        };
+        
+        const feedbackSection = document.querySelector('#memorial > div:nth-child(4)');
+        if (feedbackSection && !document.querySelector('.edit-memorial-btn')) {
+          feedbackSection.after(editBtn);
+        }
+      }
+    }
 
     if (userRole === 'admin') {
       document.getElementById('edit-name').value = d.name || '';
@@ -201,7 +226,6 @@ window.saveMemorial = async function() {
   } catch (e) { alert('Ошибка: ' + e.message); }
 };
 
-// ФУНКЦИЯ УДАЛЕНИЯ
 window.deleteMemorial = async function() {
   if (userRole !== 'admin') return;
   if (!confirm('⚠️ Вы уверены? Это действие нельзя отменить.')) return;
@@ -321,45 +345,32 @@ window.startScanner = function() {
 window.stopScanner = function() { if (qrScanner) qrScanner.stop().catch(()=>{}); window.showSection('home'); };
 
 // ==========================================
-// 8. ЧАТЫ (REAL-TIME ИСПРАВЛЕНИЕ)
+// 8. ЧАТЫ
 // ==========================================
-
-// Отправка сообщения (Форма пользователя)
 document.getElementById('feedback-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser) { alert('Войдите'); window.showSection('auth'); return; }
   try {
-    await db.collection('messages').add({ 
-      chatId: currentUser.uid, // Важно: ID чата = ID пользователя
-      sender: 'user', 
-      subject: document.getElementById('feedback-subject').value, 
-      text: document.getElementById('feedback-message').value, 
-      createdAt: firebase.firestore.FieldValue.serverTimestamp() 
-    });
+    await db.collection('messages').add({ chatId: currentUser.uid, sender: 'user', subject: document.getElementById('feedback-subject').value, text: document.getElementById('feedback-message').value, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
     alert('✅ Отправлено!'); e.target.reset(); window.showSection('home');
   } catch (err) { alert('Ошибка: ' + err.message); }
 });
 
-// ✅ ИСПРАВЛЕНИЕ: Теперь сообщения пользователя обновляются в реальном времени!
 window.loadUserMessages = function() {
   if (!currentUser) return alert('Войдите');
   window.showSection('user-messages');
   const list = document.getElementById('user-msg-list');
   list.innerHTML = '<p>⏳ Загрузка...</p>';
   
-  // Отписываемся от прошлого слушателя, если был
   if (userMsgUnsubscribe) userMsgUnsubscribe();
 
-  // Слушаем изменения в базе
   userMsgUnsubscribe = db.collection('messages')
     .where('chatId', '==', currentUser.uid)
-    .orderBy('createdAt', 'desc') // Сортировка на сервере (нужен индекс, но если не сработает - сортируем ниже)
+    .orderBy('createdAt', 'desc')
     .onSnapshot(snap => {
       list.innerHTML = '';
       const msgs = [];
       snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
-      
-      // Сортировка на клиенте (на случай если индекс не создан)
       msgs.sort((a, b) => (b.createdAt ? b.createdAt.toMillis() : 0) - (a.createdAt ? a.createdAt.toMillis() : 0));
       
       if (!msgs.length) { list.innerHTML = '<p>📭 Нет сообщений</p>'; return; }
@@ -376,11 +387,10 @@ window.loadUserMessages = function() {
       });
     }, err => {
       console.error(err);
-      list.innerHTML = `<p style="color:red">❌ Ошибка загрузки. Проверьте консоль.</p>`;
+      list.innerHTML = `<p style="color:red">❌ Ошибка загрузки</p>`;
     });
 };
 
-// Список чатов (Админ)
 window.showAdminChats = async function() {
   if (userRole !== 'admin') return alert('Доступ запрещён');
   window.showSection('admin-chats');
@@ -409,7 +419,6 @@ window.showAdminChats = async function() {
   } catch(e) { alert('Ошибка: ' + e.message); }
 };
 
-// Открытие чата (Админ)
 window.openChat = async function(chatId) {
   currentChatId = chatId;
   window.showSection('chat-view');
@@ -423,7 +432,6 @@ window.openChat = async function(chatId) {
   renderChat(chatId);
 };
 
-// Отрисовка чата (Админ)
 function renderChat(chatId) {
   const box = document.getElementById('chat-messages');
   box.innerHTML = '<p>⏳ Загрузка...</p>';
@@ -458,21 +466,14 @@ function renderChat(chatId) {
   }, err => { box.innerHTML = `<p style="color:#ef4444">❌ Ошибка чата</p>`; });
 }
 
-// Отправка сообщения (Админ)
 window.sendChatMessage = function() {
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
   if (!text || !currentChatId) {
-    if(!currentChatId) alert("Ошибка: Не выбран чат. Попробуйте перезагрузить страницу.");
+    if(!currentChatId) alert("Ошибка: Не выбран чат");
     return;
   }
-  console.log("Отправка сообщения в чат:", currentChatId); // Для отладки
-  db.collection('messages').add({ 
-    chatId: currentChatId, 
-    sender: userRole, 
-    text: text, 
-    createdAt: firebase.firestore.FieldValue.serverTimestamp() 
-  }).then(() => { input.value = ''; });
+  db.collection('messages').add({ chatId: currentChatId, sender: userRole, text: text, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).then(() => { input.value = ''; });
 };
 
 document.getElementById('chat-input')?.addEventListener('keypress', e => { if (e.key === 'Enter') window.sendChatMessage(); });
