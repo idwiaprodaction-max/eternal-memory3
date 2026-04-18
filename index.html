@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Вечная память</title>
     
-    <!-- СОВРЕМЕННЫЙ ШРИФТ INTER -->
+    <!-- Шрифты -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     
-    <!-- СТИЛИ -->
+    <!-- Стили -->
     <link rel="stylesheet" href="style.css">
     
-    <!-- БИБЛИОТЕКИ FIREBASE И QR -->
+    <!-- Библиотеки -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -22,7 +22,7 @@
 </head>
 <body>
 
-    <!-- ШАПКА САЙТА -->
+    <!-- ШАПКА -->
     <header>
         <div class="logo" onclick="window.showSection('home')" style="cursor: pointer;">🕊️ Вечная память</div>
         <nav id="nav">
@@ -41,7 +41,7 @@
         <!-- 🏠 ГЛАВНАЯ СТРАНИЦА -->
         <section id="home" class="active">
             <h1>Цифровая память о близких</h1>
-            <p style="text-align:center; font-size:1.1rem; color:var(--text-light); margin-bottom:2rem;">
+            <p style="text-align:center; font-size:1.1rem; color:var(--text-secondary); margin-bottom:2rem;">
                 Сохраните историю, фотографии и связь поколений. Просто отсканируйте QR-код.
             </p>
             
@@ -54,21 +54,14 @@
             <div style="margin-top:4rem;">
                 <h2 style="text-align:center; margin-bottom:1.5rem;">Примеры памятников</h2>
                 <div class="examples-grid">
-                    <div class="memorial-card" onclick="window.loadMemorial('ivanov')">
-                        <h3>Иванов Иван Иванович</h3>
-                        <p style="font-size:1.1rem; font-weight:bold; color:var(--primary);">1940 — 2015</p>
-                        <p style="font-size:0.9rem;">Ветеран труда, любящий отец</p>
-                    </div>
-                    <div class="memorial-card" onclick="window.loadMemorial('petrova')">
-                        <h3>Петрова Мария Сергеевна</h3>
-                        <p style="font-size:1.1rem; font-weight:bold; color:var(--primary);">1952 — 2020</p>
-                        <p style="font-size:0.9rem;">Учительница, бабушка троих внуков</p>
-                    </div>
-                    <div class="memorial-card" onclick="window.loadMemorial('sidorov')">
-                        <h3>Сидоров Пётр Николаевич</h3>
-                        <p style="font-size:1.1rem; font-weight:bold; color:var(--primary);">1935 — 2018</p>
-                        <p style="font-size:0.9rem;">Фронтовик, глава семьи</p>
-                    </div>
+                    <!-- Карточки будут загружены через JavaScript -->
+                </div>
+                
+                <!-- Кнопка создания примеров (только для админа) -->
+                <div id="create-examples-btn" style="text-align:center; margin-top:2rem; display:none;">
+                    <button class="secondary-btn" onclick="window.createExampleMemorials()">
+                        📦 Создать примеры памятников в базе
+                    </button>
                 </div>
             </div>
         </section>
@@ -77,15 +70,12 @@
         <section id="auth" class="hidden">
             <h2 id="auth-title" style="text-align:center;">Вход в аккаунт</h2>
             <form id="auth-form" style="max-width:400px; margin:0 auto;">
-                <!-- Поле ИМЯ (появляется только при регистрации) -->
                 <input type="text" id="reg-name" placeholder="Ваше имя" style="display: none; margin-bottom: 10px;">
-                
                 <input type="email" id="email" placeholder="Email" required>
                 <input type="password" id="password" placeholder="Пароль" required>
-                
                 <button type="submit" class="primary-btn" id="auth-submit" style="width:100%; margin-top:1rem;">Войти</button>
             </form>
-            <p class="switch-auth" id="switch-auth" onclick="window.toggleAuthMode()" style="text-align:center; margin-top:1rem; cursor:pointer; color:var(--primary); font-weight:500;">
+            <p class="switch-auth" id="switch-auth" onclick="window.toggleAuthMode()" style="text-align:center; margin-top:1rem; cursor:pointer; color:var(--accent); font-weight:500;">
                 Нет аккаунта? Зарегистрироваться
             </p>
         </section>
@@ -94,15 +84,15 @@
         <section id="profile" class="hidden">
             <h2>👤 Мой профиль</h2>
             <div class="profile-card">
-                <div style="margin-bottom: 2rem; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 1rem;">
+                <div style="margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
                     <label style="font-weight: 600; display:block; margin-bottom:0.5rem;">Ваше имя:</label>
                     <input type="text" id="profile-name-input" placeholder="Введите имя" style="width: 100%;">
                     <button class="secondary-btn" onclick="window.saveProfileName()" style="margin-top: 10px;">💾 Сохранить имя</button>
                 </div>
                 
-                <p><strong style="min-width:120px; display:inline-block;">Email:</strong> <span id="profile-email">...</span></p>
-                <p><strong style="min-width:120px; display:inline-block;">Роль:</strong> <span id="profile-role">...</span></p>
-                <p><strong style="min-width:120px; display:inline-block;">Дата регистрации:</strong> <span id="profile-date">...</span></p>
+                <p><strong style="min-width:180px; display:inline-block;">Email:</strong> <span id="profile-email">...</span></p>
+                <p><strong style="min-width:180px; display:inline-block;">Роль:</strong> <span id="profile-role">...</span></p>
+                <p><strong style="min-width:180px; display:inline-block;">Дата регистрации:</strong> <span id="profile-date">...</span></p>
                 
                 <div style="margin-top: 2rem;">
                     <button class="secondary-btn" style="color:#ef4444; border-color:#ef4444;" onclick="window.logout()">🚪 Выйти из аккаунта</button>
@@ -128,6 +118,14 @@
             <h2>Наведите камеру на QR</h2>
             <div id="qr-reader"></div>
             <button class="secondary-btn" onclick="window.stopScanner()">Закрыть камеру</button>
+        </section>
+
+        <!-- 📜 СООБЩЕНИЯ ПОЛЬЗОВАТЕЛЯ -->
+        <section id="user-messages" class="hidden">
+            <h2>📜 Мои обращения</h2>
+            <div id="user-msg-list" style="margin-top:1.5rem;"></div>
+            <button class="secondary-btn" onclick="window.showSection('feedback')" style="margin-top:1rem;">✉️ Написать новое</button>
+            <button class="secondary-btn" onclick="window.showSection('home')" style="margin-top:1rem;">🔙 На главную</button>
         </section>
 
         <!-- 🛠 АДМИНКА: СПИСОК ПАМЯТНИКОВ -->
@@ -176,12 +174,12 @@
 
         <!-- 💬 ОКНО ПЕРЕПИСКИ (ЧАТ) -->
         <section id="chat-view" class="hidden">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:1rem; margin-bottom:1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:1rem; margin-bottom:1rem;">
                 <h2 id="chat-title" style="margin:0;">Чат</h2>
                 <button class="secondary-btn" onclick="window.showSection('admin-chats')">🔙 К списку</button>
             </div>
             
-            <div id="chat-messages" style="height:400px; overflow-y:auto; background:#f9fafb; padding:1.5rem; border-radius:16px; margin-bottom:1rem;">
+            <div id="chat-messages" style="height:400px; overflow-y:auto; background:rgba(0,0,0,0.3); padding:1.5rem; border-radius:16px; margin-bottom:1rem;">
                 <!-- Сообщения появятся здесь -->
             </div>
             
@@ -201,9 +199,9 @@
             </div>
             
             <div id="auth-extra" class="hidden">
-                <div style="background:#f3f4f6; padding:1.5rem; border-radius:12px; margin-bottom:1.5rem;">
+                <div style="background:rgba(255,255,255,0.05); padding:1.5rem; border-radius:12px; margin-bottom:1.5rem; border:1px solid var(--border);">
                     <h3>📖 Биография</h3>
-                    <p id="m-bio" style="white-space: pre-wrap; line-height:1.7;">...</p>
+                    <p id="m-bio" style="white-space: pre-wrap; line-height:1.7; color:var(--text-main);">...</p>
                 </div>
                 
                 <h3>🌳 Семейное древо</h3>
@@ -215,19 +213,19 @@
             </div>
             
             <!-- Блок "Написать админу" -->
-            <div style="margin: 2rem 0; padding: 1.5rem; background: rgba(99, 102, 241, 0.05); border-radius: 12px; text-align: center; border: 1px solid rgba(99, 102, 241, 0.2);">
-                <p style="margin-bottom: 1rem; color: var(--text-light);">💬 Нашли ошибку или хотите дополнить?</p>
+            <div style="margin: 2rem 0; padding: 1.5rem; background: rgba(192, 57, 43, 0.1); border-radius: 12px; text-align: center; border: 1px solid rgba(192, 57, 43, 0.3);">
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">💬 Нашли ошибку или хотите дополнить?</p>
                 <button class="secondary-btn" onclick="window.showSection('feedback')">✉️ Написать администратору</button>
             </div>
             
             <div style="text-align:center; margin:2rem 0;">
                 <p style="color:#888; font-size:0.9rem; margin-bottom:0.5rem;">QR-код этого памятника</p>
-                <div id="memorial-qr" style="display:inline-block; background:white; padding:1rem; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1);"></div>
+                <div id="memorial-qr" style="display:inline-block; background:white; padding:1rem; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.3);"></div>
             </div>
             
             <!-- АДМИН ПАНЕЛЬ (РЕДАКТИРОВАНИЕ) -->
-            <div id="admin-extra" class="hidden" style="margin-top:3rem; padding-top:2rem; border-top:2px dashed #e5e7eb;">
-                <h3 style="color:#ef4444;">🔧 Режим администратора</h3>
+            <div id="admin-extra" class="hidden" style="margin-top:3rem; padding-top:2rem; border-top:2px dashed var(--border);">
+                <h3 style="color:var(--accent);">🔧 Режим администратора</h3>
                 <div style="display:grid; gap:1rem;">
                     <input type="text" id="edit-name" placeholder="ФИО">
                     <input type="text" id="edit-years" placeholder="Годы">
@@ -245,6 +243,7 @@
                 <div style="margin-top:2rem; display:flex; gap:1rem;">
                     <button class="primary-btn" onclick="window.saveMemorial()">💾 Сохранить изменения</button>
                     <button class="secondary-btn" onclick="window.showSection('admin')">🔙 В список</button>
+                    <button class="secondary-btn" style="color:#ef4444; border-color:#ef4444;" onclick="window.deleteMemorial()">🗑️ Удалить</button>
                 </div>
             </div>
         </section>
