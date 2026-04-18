@@ -34,6 +34,67 @@ window.showSection = function(id) {
   if (id === 'home') loadHomeExamples();
 };
 
+// Функция создания примеров в базе (запустить один раз)
+window.createExampleMemorials = async function() {
+  const examples = [
+    {
+      id: 'ivanov',
+      name: 'Иванов Иван Иванович',
+      years: '1940 — 2015',
+      details: 'Ветеран труда, проработал 40 лет на заводе. Любящий отец двоих детей и дедушка троих внуков.',
+      lat: '55.7558',
+      lng: '37.6173',
+      family: [
+        { relation: 'spouse', name: 'Иванова Анна Петровна', years: '1945 — 2018' },
+        { relation: 'son', name: 'Иванов Сергей Иванович', years: '1970' },
+        { relation: 'daughter', name: 'Иванова Елена Ивановна', years: '1975' }
+      ]
+    },
+    {
+      id: 'petrova',
+      name: 'Петрова Мария Сергеевна',
+      years: '1952 — 2020',
+      details: 'Учительница начальных классов с 30-летним стажем. Вырастила двоих детей.',
+      lat: '59.9343',
+      lng: '30.3351',
+      family: [
+        { relation: 'spouse', name: 'Петров Николай Иванович', years: '1950 — 2019' },
+        { relation: 'son', name: 'Петров Андрей Николаевич', years: '1975' },
+        { relation: 'daughter', name: 'Петрова Ольга Николаевна', years: '1980' }
+      ]
+    },
+    {
+      id: 'sidorov',
+      name: 'Сидоров Пётр Николаевич',
+      years: '1935 — 2018',
+      details: 'Фронтовик, участник Великой Отечественной войны. Награждён орденами и медалями.',
+      lat: '55.0084',
+      lng: '82.9357',
+      family: [
+        { relation: 'spouse', name: 'Сидорова Валентина Ивановна', years: '1938' },
+        { relation: 'son', name: 'Сидоров Михаил Петрович', years: '1960' },
+        { relation: 'grandson', name: 'Сидоров Артём Михайлович', years: '1985' }
+      ]
+    }
+  ];
+
+  let created = 0;
+  for (const ex of examples) {
+    const doc = await db.collection('memorials').doc(ex.id).get();
+    if (!doc.exists) {
+      await db.collection('memorials').doc(ex.id).set({
+        ...ex,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      created++;
+      console.log(`✅ Создан пример: ${ex.name}`);
+    }
+  }
+  
+  alert(`✅ Создано ${created} примеров памятников!\nТеперь кнопки "Редактировать" будут работать.`);
+  loadHomeExamples();
+};
+
 function updateUI() {
   if (!currentUser) {
     document.getElementById('btn-login').classList.remove('hidden');
