@@ -1,4 +1,6 @@
-// === КОНФИГУРАЦИЯ FIREBASE ===
+// ==========================================
+// 1. КОНФИГУРАЦИЯ FIREBASE
+// ==========================================
 const firebaseConfig = {
   apiKey: "AIzaSyAgJkDzwzxrjwtBpKqSnoWD_jpfd92w0JE",
   authDomain: "eternal-memory-88f34.firebaseapp.com",
@@ -13,32 +15,61 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Глобальные переменные
+// ==========================================
+// 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+// ==========================================
 let currentUser = null;
 let userRole = 'guest';
 let currentMemorialId = null;
 let currentChatId = null;
-let currentChatUserName = "Пользователь"; // Имя собеседника
+let currentChatUserName = "Пользователь"; // Хранит имя собеседника
 let qrScanner = null;
 let chatUnsubscribe = null;
 
-// === 🟢 НАВИГАЦИЯ И UI ===
+// ==========================================
+// 3. НАВИГАЦИЯ И UI
+// ==========================================
+
+// Переключение секций (страниц)
 window.showSection = function(id) {
-  document.querySelectorAll('main > section').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
-  const t = document.getElementById(id);
-  if(t) { t.classList.remove('hidden'); t.classList.add('active'); window.scrollTo(0,0); }
+  // Скрываем все секции
+  document.querySelectorAll('main > section').forEach(s => { 
+    s.classList.add('hidden'); 
+    s.classList.remove('active'); 
+  });
+  
+  // Показываем нужную
+  const target = document.getElementById(id);
+  if (target) { 
+    target.classList.remove('hidden'); 
+    target.classList.add('active'); 
+    window.scrollTo(0, 0); // Прокрутка наверх
+  }
 };
 
+// Обновление кнопок в меню в зависимости от роли
 function updateUI() {
-  if(!currentUser) return;
-  // Показываем кнопки авторизованным
-  document.getElementById('btn-logout').classList.remove('hidden');
-  document.getElementById('btn-home').classList.remove('hidden');
-  document.getElementById('btn-profile').classList.remove('hidden');
+  if (!currentUser) {
+    // Если гость
+    document.getElementById('btn-login').classList.remove('hidden');
+    document.getElementById('btn-register').classList.remove('hidden');
+    document.getElementById('btn-home').classList.add('hidden');
+    document.getElementById('btn-profile').classList.add('hidden');
+    document.getElementById('btn-user-msgs').classList.add('hidden');
+    document.getElementById('btn-admin').classList.add('hidden');
+    document.getElementById('btn-admin-chats').classList.add('hidden');
+    document.getElementById('btn-logout').classList.add('hidden');
+    return;
+  }
+
+  // Если вошел
   document.getElementById('btn-login').classList.add('hidden');
   document.getElementById('btn-register').classList.add('hidden');
-  
-  // Кнопки по ролям
+  document.getElementById('btn-home').classList.remove('hidden');
+  document.getElementById('btn-profile').classList.remove('hidden');
+  document.getElementById('btn-logout').classList.remove('hidden');
+
+  // По ролям
   if (userRole === 'admin') {
     document.getElementById('btn-admin').classList.remove('hidden');
     document.getElementById('btn-admin-chats').classList.remove('hidden');
@@ -48,255 +79,408 @@ function updateUI() {
     document.getElementById('btn-admin-chats').classList.add('hidden');
     document.getElementById('btn-user-msgs').classList.remove('hidden');
   }
-  
-  // Поля админа на странице памятника
-  const adminPanel = document.getElementById('admin-extra');
-  if(adminPanel) adminPanel.classList.toggle('hidden', userRole !== 'admin');
-  
-  // Доп. инфо для авторизованных
-  const authExtra = document.getElementById('auth-extra');
-  if(authExtra) authExtra.classList.remove('hidden');
 }
 
-// === 🟢 ПРОФИЛЬ И ИМЯ ===
-window.showProfile = async function() {
-  if(!currentUser) return;
-  showSection('profile');
-  
-  document.getElementById('profile-email').textContent = currentUser.email;
-  document.getElementById('profile-role').textContent = userRole === 'admin' ? '👑 Администратор' : '👤 Пользователь';
-  
-  // Получаем имя из базы
-  try {
-    const doc = await db.collection('users').doc(currentUser.uid).get();
-    if(doc.exists) {
-      const d = doc.data();
-      document.getElementById('profile-name-input').value = d.name || '';
-      document.getElementById('profile-date').textContent = d.created ? d.created.toDate().toLocaleDateString('ru-RU') : '...';
-    }
-  } catch(e) { console.error(e); }
-};
+// ==========================================
+// 4. АВТОРИЗАЦИЯ (ВХОД / РЕГИСТРАЦИЯ)
+// ==========================================
 
-window.saveProfileName = async function() {
-  if(!currentUser) return;
-  const newName = document.getElementById('profile-name-input').value.trim();
-  if(!newName) return alert('Введите имя');
-  
-  try {
-    await db.collection('users').doc(currentUser.uid).update({ name: newName });
-    alert('✅ Имя сохранено!');
-  } catch(e) { alert('Ошибка сохранения: ' + e.message); }
-};
-
-// === 🟢 АВТОРИЗАЦИЯ (С ИМЕНЕМ) ===
+// Показать форму входа или регистрации
 window.showAuth = function(mode) {
   const isReg = mode === 'register';
   document.getElementById('auth-title').textContent = isReg ? 'Регистрация' : 'Вход';
   document.getElementById('auth-submit').textContent = isReg ? 'Создать аккаунт' : 'Войти';
-  document.getElementById('switch-auth').textContent = isReg ? 'Уже есть? Войти' : 'Нет аккаунта? Регистрация';
-  document.getElementById('reg-name').style.display = isReg ? 'block' : 'none';
-  document.getElementById('reg-name').value = ''; 
-  showSection('auth');
+  document.getElementById('switch-auth').textContent = isReg ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться';
+  
+  // Показываем поле имени только при регистрации
+  const nameField = document.getElementById('reg-name');
+  nameField.style.display = isReg ? 'block' : 'none';
+  nameField.value = ''; 
+  
+  window.showSection('auth');
 };
 
+// Переключатель между входом и регистрацией
 window.toggleAuthMode = function() {
   const isReg = document.getElementById('auth-submit').textContent === 'Создать аккаунт';
   window.showAuth(isReg ? 'login' : 'register');
 };
 
-document.getElementById('auth-form').addEventListener('submit', async e => {
+// Обработка формы
+document.getElementById('auth-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = document.getElementById('email').value;
   const pass = document.getElementById('password').value;
   const name = document.getElementById('reg-name').value.trim();
   const isReg = document.getElementById('auth-submit').textContent === 'Создать аккаунт';
-  
-  document.getElementById('reg-name').style.display = isReg ? 'block' : 'none';
-  if(isReg && !name) return alert('Введите ваше имя!');
+
+  // Проверка имени при регистрации
+  if (isReg && !name) return alert('Пожалуйста, введите ваше имя!');
 
   try {
-    const cred = isReg 
-      ? await auth.createUserWithEmailAndPassword(email, pass)
-      : await auth.signInWithEmailAndPassword(email, pass);
-    
-    if(isReg) {
-      await db.collection('users').doc(cred.user.uid).set({ 
-        email, name, role: 'user', created: firebase.firestore.FieldValue.serverTimestamp() 
+    let cred;
+    if (isReg) {
+      // Регистрация
+      cred = await auth.createUserWithEmailAndPassword(email, pass);
+      // Создаем запись пользователя в базе
+      await db.collection('users').doc(cred.user.uid).set({
+        email: email,
+        name: name,
+        role: 'user',
+        created: firebase.firestore.FieldValue.serverTimestamp()
       });
+    } else {
+      // Вход
+      cred = await auth.signInWithEmailAndPassword(email, pass);
     }
-    showSection('home');
-  } catch(e) { alert('Ошибка: ' + e.message); }
+    window.showSection('home');
+  } catch (error) {
+    alert('Ошибка: ' + error.message);
+  }
 });
 
-window.logout = function() { auth.signOut(); window.showSection('home'); };
+// Выход из аккаунта
+window.logout = function() {
+  auth.signOut();
+  window.showSection('home');
+};
 
-// === 🟢 СЛЕЖЕНИЕ ЗА АВТОРИЗАЦИЕЙ ===
-auth.onAuthStateChanged(async u => {
-  currentUser = u;
-  if(u) {
+// Отслеживание состояния авторизации (срабатывает при загрузке страницы)
+auth.onAuthStateChanged(async (user) => {
+  currentUser = user;
+  if (user) {
+    // Загружаем роль пользователя
     try {
-      const d = await db.collection('users').doc(u.uid).get();
-      userRole = d.exists ? d.data().role : 'user';
-    } catch(e) { userRole = 'user'; }
+      const doc = await db.collection('users').doc(user.uid).get();
+      userRole = doc.exists ? doc.data().role : 'user';
+    } catch (e) {
+      userRole = 'user';
+    }
   } else {
     userRole = 'guest';
   }
   updateUI();
 });
 
-// === 🟢 QR СКАНЕР ===
-window.startScanner = function() {
-  window.showSection('scanner');
-  if(typeof Html5Qrcode !== 'undefined') {
-    if(qrScanner) qrScanner.stop().catch(()=>{});
-    qrScanner = new Html5Qrcode("qr-reader");
-    qrScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, code => {
-      qrScanner.stop();
-      let id = code.includes('id=') ? code.split('id=')[1].split('&')[0] : code;
-      window.loadMemorial(id.trim());
-    }, ()=>{});
+// ==========================================
+// 5. ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+// ==========================================
+
+window.showProfile = async function() {
+  if (!currentUser) return;
+  window.showSection('profile');
+  
+  document.getElementById('profile-email').textContent = currentUser.email;
+  document.getElementById('profile-role').textContent = userRole === 'admin' ? '👑 Администратор' : '👤 Пользователь';
+  
+  // Получаем имя и дату
+  try {
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if (doc.exists) {
+      const data = doc.data();
+      document.getElementById('profile-name-input').value = data.name || '';
+      document.getElementById('profile-date').textContent = data.created 
+        ? data.created.toDate().toLocaleDateString('ru-RU') 
+        : 'Неизвестно';
+    }
+  } catch (e) {
+    console.error(e);
   }
 };
-window.stopScanner = function() { if(qrScanner) qrScanner.stop().catch(()=>{}); window.showSection('home'); };
 
-// === 🟢 ПАМЯТНИКИ (CRUD) ===
+window.saveProfileName = async function() {
+  if (!currentUser) return;
+  const newName = document.getElementById('profile-name-input').value.trim();
+  if (!newName) return alert('Введите имя');
+  
+  try {
+    await db.collection('users').doc(currentUser.uid).update({ name: newName });
+    alert('✅ Имя сохранено!');
+  } catch (e) {
+    alert('Ошибка: ' + e.message);
+  }
+};
+
+// ==========================================
+// 6. ПАМЯТНИКИ (ПРОСМОТР И УПРАВЛЕНИЕ)
+// ==========================================
+
+// Загрузка данных памятника
 window.loadMemorial = async function(id) {
   currentMemorialId = id;
   window.showSection('memorial');
-  document.getElementById('m-name').textContent = '⏳ Загрузка...';
   
+  // Сброс полей
+  document.getElementById('m-name').textContent = '⏳ Загрузка...';
+  document.getElementById('m-years').textContent = '';
+  document.getElementById('m-bio').textContent = '';
+  document.getElementById('family-tree-display').innerHTML = '';
+  document.getElementById('memorial-qr').innerHTML = '';
+  document.getElementById('edit-family-list').innerHTML = '';
+  
+  // Скрываем кнопки гео и доп. инфо пока не загрузим
+  document.getElementById('btn-geo').classList.add('hidden');
+  const authExtra = document.getElementById('auth-extra');
+  if(authExtra) authExtra.classList.add('hidden');
+
   try {
     const doc = await db.collection('memorials').doc(id).get();
-    if(!doc.exists) { document.getElementById('m-name').textContent = '❌ Не найдено'; return; }
+    if (!doc.exists) {
+      document.getElementById('m-name').textContent = '❌ Не найдено';
+      return;
+    }
     
     const d = doc.data();
-    document.getElementById('m-name').textContent = d.name||'';
-    document.getElementById('m-years').textContent = d.years||'';
-    document.getElementById('m-bio').textContent = d.details||'';
     
-    // Гео
-    const geo = document.getElementById('btn-geo');
-    if(d.lat && d.lng) { geo.classList.remove('hidden'); geo.onclick = () => window.open(`https://maps.google.com/?q=${d.lat},${d.lng}`, '_blank'); }
-    else geo.classList.add('hidden');
-
-    // Дерево
-    renderFamilyTree(d.family||[]);
+    // Заполняем основные поля
+    document.getElementById('m-name').textContent = d.name || '';
+    document.getElementById('m-years').textContent = d.years || '';
+    document.getElementById('m-bio').textContent = d.details || 'Нет биографии';
     
-    // QR
-    const url = `${window.location.origin}${window.location.pathname}?id=${id}`;
-    document.getElementById('memorial-qr').innerHTML = '';
-    if(typeof QRCode !== 'undefined') new QRCode(document.getElementById('memorial-qr'), { text: url, width: 150, height: 150 });
-
-    // Заполнение полей админа
-    if(userRole === 'admin') {
-      document.getElementById('edit-name').value = d.name||'';
-      document.getElementById('edit-years').value = d.years||'';
-      document.getElementById('edit-details').value = d.details||'';
-      document.getElementById('edit-lat').value = d.lat||'';
-      document.getElementById('edit-lng').value = d.lng||'';
-      document.getElementById('edit-family-list').innerHTML = '';
-      (d.family||[]).forEach(f => window.addFamilyMember('edit', f.relation, f.name, f.years));
+    // Геолокация
+    if (d.lat && d.lng) {
+      const geoBtn = document.getElementById('btn-geo');
+      geoBtn.classList.remove('hidden');
+      geoBtn.onclick = () => window.open(`https://maps.google.com/?q=${d.lat},${d.lng}`, '_blank');
     }
-  } catch(e) { alert('Ошибка: ' + e.message); }
+    
+    // Семейное древо
+    renderFamilyTree(d.family || []);
+    
+    // QR код
+    const url = `${window.location.origin}${window.location.pathname}?id=${id}`;
+    if (typeof QRCode !== 'undefined') {
+      new QRCode(document.getElementById('memorial-qr'), { text: url, width: 150, height: 150 });
+    }
+    
+    // Показываем доп. инфо для авторизованных
+    if (currentUser) {
+      document.getElementById('auth-extra').classList.remove('hidden');
+    }
+
+    // Если админ - заполняем поля редактирования
+    if (userRole === 'admin') {
+      document.getElementById('edit-name').value = d.name || '';
+      document.getElementById('edit-years').value = d.years || '';
+      document.getElementById('edit-details').value = d.details || '';
+      document.getElementById('edit-lat').value = d.lat || '';
+      document.getElementById('edit-lng').value = d.lng || '';
+      
+      // Родственники для редактирования
+      (d.family || []).forEach(f => window.addFamilyMember('edit', f.relation, f.name, f.years));
+    }
+    
+  } catch (e) {
+    alert('Ошибка загрузки: ' + e.message);
+  }
 };
 
-function renderFamilyTree(fam) {
-  const c = document.getElementById('family-tree-display');
-  if(!fam.length) { c.innerHTML = '<p style="color:#888; font-style:italic;">Нет данных</p>'; return; }
-  const map = {father:'Отец', mother:'Мать', spouse:'Супруг(а)', son:'Сын', daughter:'Дочь', brother:'Брат', sister:'Сестра'};
-  c.innerHTML = '<ul style="list-style:none; padding:0;">' + fam.map(f => `<li style="margin:8px 0; padding:8px; background:#f9f9f9; border-radius:5px;"><b>${map[f.relation]||f.relation}:</b> ${f.name} ${f.years?`<span style="color:#666">(${f.years})</span>`:''}</li>`).join('') + '</ul>';
-}
-
-window.addFamilyMember = function(mode, rel='', name='', years='') {
-  const id = mode==='edit' ? 'edit-family-list' : 'add-family-list';
-  const div = document.createElement('div');
-  div.style.cssText = "display:flex; gap:8px; margin:8px 0; align-items:center; flex-wrap:wrap;";
-  div.innerHTML = `<select class="f-rel" style="flex:1; min-width:100px;"><option value="father" ${rel=='father'?'selected':''}>Отец</option><option value="mother" ${rel=='mother'?'selected':''}>Мать</option><option value="spouse" ${rel=='spouse'?'selected':''}>Супруг(а)</option><option value="son" ${rel=='son'?'selected':''}>Сын</option><option value="daughter" ${rel=='daughter'?'selected':''}>Дочь</option></select><input class="f-name" placeholder="ФИО" value="${name}" style="flex:2;"><input class="f-years" placeholder="Годы" value="${years}" style="flex:1;"><button type="button" class="secondary-btn" onclick="this.parentElement.remove()" style="padding:5px 10px;">✕</button>`;
-  document.getElementById(id).appendChild(div);
-};
-
+// Сохранение изменений памятника (Админ)
 window.saveMemorial = async function() {
-  if(userRole !== 'admin') return alert('Нет прав');
-  const fam = [];
-  document.querySelectorAll('#edit-family-list > div').forEach(d => fam.push({relation: d.querySelector('.f-rel').value, name: d.querySelector('.f-name').value, years: d.querySelector('.f-years').value}));
+  if (userRole !== 'admin') return alert('Нет прав');
   
+  // Собираем родственников из полей ввода
+  const family = [];
+  document.querySelectorAll('#edit-family-list > div').forEach(div => {
+    family.push({
+      relation: div.querySelector('.f-rel').value,
+      name: div.querySelector('.f-name').value.trim(),
+      years: div.querySelector('.f-years').value.trim()
+    });
+  });
+
   try {
     await db.collection('memorials').doc(currentMemorialId).set({
-      name: document.getElementById('edit-name').value, 
-      years: document.getElementById('edit-years').value, 
-      details: document.getElementById('edit-details').value, 
-      lat: document.getElementById('edit-lat').value, 
-      lng: document.getElementById('edit-lng').value, 
-      family: fam
-    }, {merge:true});
-    alert('✅ Сохранено!'); 
-    window.loadMemorial(currentMemorialId);
-  } catch(e) { alert('Ошибка: ' + e.message); }
+      name: document.getElementById('edit-name').value,
+      years: document.getElementById('edit-years').value,
+      details: document.getElementById('edit-details').value,
+      lat: document.getElementById('edit-lat').value,
+      lng: document.getElementById('edit-lng').value,
+      family: family
+    }, { merge: true });
+    
+    alert('✅ Сохранено!');
+    window.loadMemorial(currentMemorialId); // Перезагрузить страницу
+  } catch (e) {
+    alert('Ошибка: ' + e.message);
+  }
 };
 
+// Панель администратора: Список памятников
 window.showAdminPanel = function() {
-  if(userRole !== 'admin') return alert('Доступ запрещён');
+  if (userRole !== 'admin') return alert('Доступ запрещён');
   window.showSection('admin');
   loadAdminList();
 };
 
 function loadAdminList() {
   const div = document.getElementById('admin-list');
-  div.innerHTML = '<p>⏳ Загрузка...</p>';
+  div.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">⏳ Загрузка...</p>';
+  
   db.collection('memorials').get().then(snap => {
     div.innerHTML = '';
-    if(snap.empty) { div.innerHTML = '<p>📭 Пусто</p>'; return; }
+    if (snap.empty) {
+      div.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">📭 Памятников пока нет</p>';
+      return;
+    }
+    
     snap.forEach(doc => {
       const d = doc.data();
       const card = document.createElement('div');
       card.className = 'admin-card';
-      card.innerHTML = `<h4>${d.name||'Без имени'}</h4><p>${d.years||''}</p><div id="qr-${doc.id}" style="margin:10px auto;"></div><button class="secondary-btn" onclick="window.loadMemorial('${doc.id}')">✏️ Изменить</button>`;
+      card.innerHTML = `
+        <h4>${d.name || 'Без имени'}</h4>
+        <p>${d.years || ''}</p>
+        <div id="qr-${doc.id}" style="margin:10px auto;"></div>
+        <button class="secondary-btn" onclick="window.loadMemorial('${doc.id}')">✏️ Редактировать</button>
+      `;
       div.appendChild(card);
+      
+      // Мини QR для списка
       setTimeout(() => {
         const url = `${window.location.origin}${window.location.pathname}?id=${doc.id}`;
-        if(typeof QRCode !== 'undefined') new QRCode(document.getElementById(`qr-${doc.id}`), { text: url, width: 90, height: 90 });
+        if (typeof QRCode !== 'undefined') {
+          new QRCode(document.getElementById(`qr-${doc.id}`), { text: url, width: 80, height: 80 });
+        }
       }, 50);
     });
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const af = document.getElementById('add-memorial');
-  if(af) {
-    af.addEventListener('submit', e => {
-      e.preventDefault();
-      if(userRole !== 'admin') return;
-      const id = document.getElementById('new-id').value.trim();
-      if(!id) return alert('Введите ID');
-      const fam = [];
-      document.querySelectorAll('#add-family-list > div').forEach(d => fam.push({relation: d.querySelector('.f-rel').value, name: d.querySelector('.f-name').value, years: d.querySelector('.f-years').value}));
-      db.collection('memorials').doc(id).set({name: document.getElementById('new-name').value, years: document.getElementById('new-years').value, details: document.getElementById('new-details').value, lat: document.getElementById('new-lat').value, lng: document.getElementById('new-lng').value, family: fam}).then(() => { alert('✅ Добавлено!'); e.target.reset(); document.getElementById('add-family-list').innerHTML = ''; window.showAdminPanel(); }).catch(e => alert('Ошибка: '+e.message));
+// Добавление нового памятника (форма)
+document.getElementById('add-memorial').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (userRole !== 'admin') return;
+  
+  const id = document.getElementById('new-id').value.trim();
+  if (!id) return alert('Введите ID');
+
+  const family = [];
+  document.querySelectorAll('#add-family-list > div').forEach(div => {
+    family.push({
+      relation: div.querySelector('.f-rel').value,
+      name: div.querySelector('.f-name').value.trim(),
+      years: div.querySelector('.f-years').value.trim()
     });
+  });
+
+  try {
+    await db.collection('memorials').doc(id).set({
+      name: document.getElementById('new-name').value,
+      years: document.getElementById('new-years').value,
+      details: document.getElementById('new-details').value,
+      lat: document.getElementById('new-lat').value,
+      lng: document.getElementById('new-lng').value,
+      family: family
+    });
+    alert('✅ Памятник добавлен!');
+    e.target.reset();
+    document.getElementById('add-family-list').innerHTML = '';
+    window.showAdminPanel();
+  } catch (err) {
+    alert('Ошибка: ' + err.message);
   }
 });
 
-// === 🟢 ЧАТЫ (ИСПРАВЛЕННЫЕ) ===
+// ==========================================
+// 7. СЕМЕЙНОЕ ДРЕВО (ФУНКЦИИ)
+// ==========================================
 
-// Отправка сообщения пользователем
-document.addEventListener('DOMContentLoaded', () => {
-  const fbForm = document.getElementById('feedback-form');
-  if(fbForm) {
-    fbForm.addEventListener('submit', e => {
-      e.preventDefault();
-      if(!currentUser) { alert('Войдите в аккаунт'); window.showSection('auth'); return; }
-      const subj = document.getElementById('feedback-subject').value;
-      const msg = document.getElementById('feedback-message').value;
-      
-      db.collection('messages').add({ chatId: currentUser.uid, sender: 'user', subject: subj, text: msg, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
-      .then(() => { alert('✅ Отправлено!'); fbForm.reset(); window.showSection('home'); })
-      .catch(err => alert('Ошибка: ' + err.message));
+// Отрисовка древа на странице просмотра
+function renderFamilyTree(fam) {
+  const container = document.getElementById('family-tree-display');
+  if (!fam.length) {
+    container.innerHTML = '<p style="color:#888; font-style:italic; grid-column: 1/-1;">Информация не добавлена</p>';
+    return;
+  }
+  
+  const map = {father:'Отец', mother:'Мать', spouse:'Супруг(а)', son:'Сын', daughter:'Дочь', brother:'Брат', sister:'Сестра'};
+  
+  container.innerHTML = fam.map(f => `
+    <div style="background:white; padding:1rem; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+      <strong style="color:var(--primary); display:block; margin-bottom:0.25rem;">${map[f.relation] || f.relation}</strong>
+      <span>${f.name}</span>
+      ${f.years ? `<span style="display:block; font-size:0.85rem; color:#888;">(${f.years})</span>` : ''}
+    </div>
+  `).join('');
+}
+
+// Добавление полей ввода родственников (для админа)
+window.addFamilyMember = function(mode, rel='', name='', years='') {
+  const listId = mode === 'edit' ? 'edit-family-list' : 'add-family-list';
+  const div = document.createElement('div');
+  div.style.cssText = "display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:center;";
+  div.innerHTML = `
+    <select class="f-rel" style="flex:1;">
+      <option value="father" ${rel=='father'?'selected':''}>Отец</option>
+      <option value="mother" ${rel=='mother'?'selected':''}>Мать</option>
+      <option value="spouse" ${rel=='spouse'?'selected':''}>Супруг(а)</option>
+      <option value="son" ${rel=='son'?'selected':''}>Сын</option>
+      <option value="daughter" ${rel=='daughter'?'selected':''}>Дочь</option>
+    </select>
+    <input class="f-name" placeholder="ФИО" value="${name}" style="flex:2;">
+    <input class="f-years" placeholder="Годы" value="${years}" style="flex:1;">
+    <button type="button" class="secondary-btn" onclick="this.parentElement.remove()" style="padding:0.5rem;">✕</button>
+  `;
+  document.getElementById(listId).appendChild(div);
+};
+
+// ==========================================
+// 8. QR СКАНЕР
+// ==========================================
+window.startScanner = function() {
+  window.showSection('scanner');
+  if (typeof Html5Qrcode !== 'undefined') {
+    if (qrScanner) qrScanner.stop().catch(()=>{});
+    qrScanner = new Html5Qrcode("qr-reader");
+    qrScanner.start(
+      { facingMode: "environment" }, 
+      { fps: 10, qrbox: 250 }, 
+      code => {
+        qrScanner.stop();
+        let id = code.includes('id=') ? code.split('id=')[1].split('&')[0] : code;
+        window.loadMemorial(id.trim());
+      }, 
+      ()=>{}
+    );
+  }
+};
+window.stopScanner = function() { 
+  if (qrScanner) qrScanner.stop().catch(()=>{}); 
+  window.showSection('home'); 
+};
+
+// ==========================================
+// 9. ЧАТЫ И СООБЩЕНИЯ (С ИМЕНАМИ!)
+// ==========================================
+
+// Отправка сообщения через форму (Пользователь)
+document.getElementById('feedback-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!currentUser) { alert('Войдите в аккаунт'); window.showSection('auth'); return; }
+  
+  const subj = document.getElementById('feedback-subject').value;
+  const msg = document.getElementById('feedback-message').value;
+  
+  try {
+    await db.collection('messages').add({
+      chatId: currentUser.uid,
+      sender: 'user',
+      subject: subj,
+      text: msg,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    alert('✅ Отправлено!');
+    e.target.reset();
+    window.showSection('home');
+  } catch (err) {
+    alert('Ошибка: ' + err.message);
   }
 });
 
 // История сообщений (Пользователь)
 window.loadUserMessages = async function() {
-  if(!currentUser) return alert('Сначала войдите');
+  if (!currentUser) return alert('Сначала войдите');
   window.showSection('user-messages');
   const list = document.getElementById('user-msg-list');
   list.innerHTML = '<p>⏳ Загрузка...</p>';
@@ -306,19 +490,28 @@ window.loadUserMessages = async function() {
     list.innerHTML = '';
     const msgs = [];
     snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
+    
+    // Сортировка
     msgs.sort((a, b) => (b.createdAt ? b.createdAt.toMillis() : 0) - (a.createdAt ? a.createdAt.toMillis() : 0));
-    if(!msgs.length) { list.innerHTML = '<p>📭 Нет обращений</p>'; return; }
+    
+    if (!msgs.length) { list.innerHTML = '<p>📭 Нет сообщений</p>'; return; }
+    
     msgs.forEach(m => {
       const d = m.createdAt ? m.createdAt.toDate().toLocaleString('ru-RU') : '';
-      const c = m.sender === 'admin' ? '#2ecc71' : '#3498db';
-      list.innerHTML += `<div class="message-card" style="border-left-color: ${c}"><h4>${m.subject||'Сообщение'}</h4><div class="meta">${m.sender==='admin'?'👑 Админ':'👤 Вы'} | ${d}</div><div class="text">${m.text}</div></div>`;
+      const color = m.sender === 'admin' ? '#2ecc71' : '#3498db';
+      list.innerHTML += `
+        <div class="message-card" style="border-left-color: ${color}">
+          <h4>${m.subject || 'Сообщение'}</h4>
+          <div class="meta">${m.sender==='admin'?'👑 Админ':'👤 Вы'} | ${d}</div>
+          <div class="text">${m.text}</div>
+        </div>`;
     });
   } catch(e) { alert('Ошибка: ' + e.message); }
 };
 
-// Список чатов (Админ) - С ЗАГРУЗКОЙ ИМЕН
+// Список чатов (Админ) — ЗАГРУЖАЕТ ИМЕНА
 window.showAdminChats = async function() {
-  if(userRole !== 'admin') return alert('Доступ запрещён');
+  if (userRole !== 'admin') return alert('Доступ запрещён');
   window.showSection('admin-chats');
   const list = document.getElementById('chats-list');
   list.innerHTML = '<p>⏳ Загрузка чатов и имен...</p>';
@@ -327,12 +520,12 @@ window.showAdminChats = async function() {
     const snap = await db.collection('messages').get();
     const chats = {};
     
+    // Группируем по пользователям
     snap.forEach(doc => {
       const m = doc.data();
-      if (!chats[m.chatId]) {
-        chats[m.chatId] = { lastMsg: m, count: 0 };
-      }
+      if (!chats[m.chatId]) chats[m.chatId] = { lastMsg: m, count: 0 };
       chats[m.chatId].count++;
+      // Берем последнее сообщение
       if (m.createdAt && chats[m.chatId].lastMsg.createdAt) {
          if (m.createdAt.toMillis() > chats[m.chatId].lastMsg.createdAt.toMillis()) {
             chats[m.chatId].lastMsg = m;
@@ -340,7 +533,7 @@ window.showAdminChats = async function() {
       }
     });
 
-    // Получаем имена
+    // Получаем имена всех пользователей из базы
     const userIds = Object.keys(chats);
     const namesMap = {};
     
@@ -352,6 +545,7 @@ window.showAdminChats = async function() {
       ));
     }
 
+    // Рендерим список
     list.innerHTML = '';
     if (Object.keys(chats).length === 0) {
       list.innerHTML = '<p>📭 Нет обращений</p>';
@@ -360,6 +554,7 @@ window.showAdminChats = async function() {
 
     Object.values(chats).forEach(chat => {
       const m = chat.lastMsg;
+      // Используем имя из карты namesMap
       const userName = namesMap[m.chatId] || m.chatId.substring(0, 8); 
       const d = m.createdAt ? m.createdAt.toDate().toLocaleString('ru-RU') : '';
       
@@ -368,7 +563,7 @@ window.showAdminChats = async function() {
       div.innerHTML = `
         <h4>💬 ${userName}</h4>
         <div class="meta">📅 ${d} | Сообщений: ${chat.count}</div>
-        <div class="text">${m.subject ? '📌 '+m.subject : ''} ${m.text.substring(0, 100)}${m.text.length > 100 ? '...' : ''}</div>
+        <div class="text">${m.subject ? '📌 '+m.subject : ''} ${m.text.substring(0, 100)}...</div>
         <button class="secondary-btn" onclick="window.openChat('${m.chatId}')" style="margin-top:10px">Ответить</button>
       `;
       list.appendChild(div);
@@ -376,14 +571,14 @@ window.showAdminChats = async function() {
   } catch(e) { alert('Ошибка: ' + e.message); }
 };
 
-// Открытие чата (С ЗАГРУЗКОЙ ИМЕНИ)
+// Открытие конкретного чата — ЗАГРУЖАЕТ ИМЯ СОБЕСЕДНИКА
 window.openChat = async function(chatId) {
   currentChatId = chatId;
   window.showSection('chat-view');
   document.getElementById('chat-input').value = '';
-  document.getElementById('chat-title').textContent = '💬 Загрузка...';
+  document.getElementById('chat-title').textContent = '💬 Загрузка имени...';
   
-  // Получаем имя пользователя
+  // Получаем имя пользователя по его ID (chatId)
   try {
     const doc = await db.collection('users').doc(chatId).get();
     currentChatUserName = doc.exists ? (doc.data().name || 'Пользователь') : chatId;
@@ -396,11 +591,11 @@ window.openChat = async function(chatId) {
   renderChat(chatId);
 };
 
-// Отрисовка сообщений
+// Отрисовка сообщений в чате (Real-time)
 function renderChat(chatId) {
   const box = document.getElementById('chat-messages');
   box.innerHTML = '<p>⏳ Загрузка...</p>';
-  if(chatUnsubscribe) chatUnsubscribe();
+  if (chatUnsubscribe) chatUnsubscribe();
   
   chatUnsubscribe = db.collection('messages').where('chatId', '==', chatId).onSnapshot(snap => {
     box.innerHTML = '';
@@ -408,7 +603,7 @@ function renderChat(chatId) {
     snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
     msgs.sort((a, b) => (a.createdAt ? a.createdAt.toMillis() : 0) - (b.createdAt ? b.createdAt.toMillis() : 0));
     
-    if(!msgs.length) { box.innerHTML = '<p style="text-align:center;color:#888;margin-top:50px">💬 Начало переписки</p>'; return; }
+    if (!msgs.length) { box.innerHTML = '<p style="text-align:center;color:#888;margin-top:50px">💬 Начало переписки</p>'; return; }
     
     msgs.forEach(m => {
       const isMe = (userRole === 'admin' && m.sender === 'admin') || (userRole !== 'admin' && m.sender === 'user');
@@ -417,27 +612,51 @@ function renderChat(chatId) {
       const border = isMe ? 'border:1px solid #a5d6a7' : 'border:1px solid #ddd';
       const t = m.createdAt ? m.createdAt.toDate().toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : '';
       
-      // ПОКАЗЫВАЕМ ИМЯ
+      // ИСПОЛЬЗУЕМ ИМЯ
       const senderName = m.sender === 'admin' ? '👑 Админ' : currentChatUserName;
 
-      box.innerHTML += `<div style="display:flex; justify-content:${align}; margin:8px 0;"><div style="max-width:70%; padding:10px 15px; border-radius:15px; ${bg}; ${border}; box-shadow:0 1px 2px rgba(0,0,0,0.1);"><div style="font-size:0.8em; color:#555; margin-bottom:4px;">${senderName}</div><div style="white-space:pre-wrap;">${m.text}</div><div style="font-size:0.7em; color:#888; text-align:right; margin-top:4px;">${t}</div></div></div>`;
+      box.innerHTML += `
+        <div style="display:flex; justify-content:${align}; margin:8px 0;">
+          <div style="max-width:70%; padding:10px 15px; border-radius:15px; ${bg}; ${border}; box-shadow:0 1px 2px rgba(0,0,0,0.1);">
+            <div style="font-size:0.8em; color:#555; margin-bottom:4px;">${senderName}</div>
+            <div style="white-space:pre-wrap;">${m.text}</div>
+            <div style="font-size:0.7em; color:#888; text-align:right; margin-top:4px;">${t}</div>
+          </div>
+        </div>`;
     });
     box.scrollTop = box.scrollHeight;
   }, err => {
-    box.innerHTML = `<p style="color:red">❌ Ошибка чата (возможно, правила Firebase)</p>`;
+    console.error(err);
+    box.innerHTML = `<p style="color:red">❌ Ошибка чата. Проверьте правила Firestore.</p>`;
   });
 }
 
+// Отправка сообщения в чате
 window.sendChatMessage = function() {
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
-  if(!text || !currentChatId) return;
-  db.collection('messages').add({ chatId: currentChatId, sender: userRole, text: text, createdAt: firebase.firestore.FieldValue.serverTimestamp() }).then(() => { input.value = ''; });
+  if (!text || !currentChatId) return;
+  
+  db.collection('messages').add({
+    chatId: currentChatId,
+    sender: userRole,
+    text: text,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => { input.value = ''; });
 };
 
-document.getElementById('chat-input')?.addEventListener('keypress', e => { if (e.key === 'Enter') window.sendChatMessage(); });
+// Отправка по Enter
+document.getElementById('chat-input')?.addEventListener('keypress', e => { 
+  if (e.key === 'Enter') window.sendChatMessage(); 
+});
 
+// ==========================================
+// 10. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ
+// ==========================================
 window.addEventListener('load', () => {
   const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.has('id')) setTimeout(() => window.loadMemorial(urlParams.get('id')), 500);
+  if (urlParams.has('id')) {
+    // Если есть ?id=..., грузим памятник с задержкой
+    setTimeout(() => window.loadMemorial(urlParams.get('id')), 500);
+  }
 });
