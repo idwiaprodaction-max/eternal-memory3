@@ -14,7 +14,6 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Глобальные переменные
 let currentUser = null;
 let userRole = 'guest';
 let currentMemorialId = null;
@@ -31,6 +30,8 @@ window.showSection = function(id) {
   document.querySelectorAll('main > section').forEach(s => { s.classList.add('hidden'); s.classList.remove('active'); });
   const t = document.getElementById(id);
   if (t) { t.classList.remove('hidden'); t.classList.add('active'); window.scrollTo(0, 0); }
+  // Если перешли на главную - обновляем примеры
+  if (id === 'home') loadHomeExamples();
 };
 
 function updateUI() {
@@ -94,7 +95,12 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     let cred;
     if (isReg) {
       cred = await auth.createUserWithEmailAndPassword(email, pass);
-      await db.collection('users').doc(cred.user.uid).set({ email, name, role: 'user', created: firebase.firestore.FieldValue.serverTimestamp() });
+      await db.collection('users').doc(cred.user.uid).set({ 
+        email, 
+        name, 
+        role: 'user', 
+        created: firebase.firestore.FieldValue.serverTimestamp() 
+      });
     } else {
       cred = await auth.signInWithEmailAndPassword(email, pass);
     }
@@ -107,39 +113,109 @@ window.logout = function() { auth.signOut(); window.showSection('home'); };
 auth.onAuthStateChanged(async (user) => {
   currentUser = user;
   if (user) {
-    try { const doc = await db.collection('users').doc(user.uid).get(); userRole = doc.exists ? doc.data().role : 'user'; } 
-    catch (e) { userRole = 'user'; }
+    try { 
+      const doc = await db.collection('users').doc(user.uid).get(); 
+      userRole = doc.exists ? doc.data().role : 'user'; 
+    } catch (e) { userRole = 'user'; }
   } else { userRole = 'guest'; }
   updateUI();
+  loadHomeExamples();
 });
 
 // ==========================================
-// 4. ПРОФИЛЬ
+// 4. ГЛАВНАЯ СТРАНИЦА С ПРИМЕРАМИ
+// ==========================================
+function loadHomeExamples() {
+  const examples = [
+    { id: 'ivanov', name: 'Иванов Иван Иванович', years: '1940 — 2015', desc: 'Ветеран труда, любящий отец' },
+    { id: 'petrova', name: 'Петрова Мария Сергеевна', years: '1952 — 2020', desc: 'Учительница, бабушка троих внуков' },
+    { id: 'sidorov', name: 'Сидоров Пётр Николаевич', years: '1935 — 2018', desc: 'Фронтовик, глава семьи' }
+  ];
+  
+  const grid = document.querySelector('.examples-grid');
+  if (!grid) return;
+  
+  grid.innerHTML = '';
+  examples.forEach(ex => {
+    const card = document.createElement('div');
+    card.className = 'memorial-card';
+    card.onclick = (e) => {
+      // Если кликнули не по кнопке редактирования
+      if (!e.target.classList.contains('edit-example-btn')) {
+        window.loadMemorial(ex.id);
+      }
+    };
+    
+    let editBtnHtml = '';
+    if (userRole === 'admin') {
+      editBtnHtml = `
+        <button class="edit-example-btn secondary-btn" style="margin-top:10px; font-size:0.85rem; padding:0.5rem 1rem;" 
+                onclick="window.loadMemorial('${ex.id}'); return false;">
+          ✏️ Редактировать
+        </button>
+      `;
+    }
+    
+    card.innerHTML = `
+      <h3>${ex.name}</h3>
+      <p style="font-size:1.1rem; font-weight:bold; color:var(--accent);">${ex.years}</p>
+      <p style="font-size:0.9rem;">${ex.desc}</p>
+      ${editBtnHtml}
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ==========================================
+// 5. ПРОФИЛЬ
 // ==========================================
 window.showProfile = async function() {
   if (!currentUser) return;
   window.showSection('profile');
   document.getElementById('profile-email').textContent = currentUser.email;
   document.getElementById('profile-role').textContent = userRole === 'admin' ? '👑 Администратор' : '👤 Пользователь';
+  
   try {
     const doc = await db.collection('users').doc(currentUser.uid).get();
     if (doc.exists) {
-      document.getElementById('profile-name-input').value = doc.data().name || '';
-      document.getElementById('profile-date').textContent = doc.data().created ? doc.data().created.toDate().toLocaleDateString('ru-RU') : '...';
+      const data = doc.data();
+      document.getElementById('profile-name-input').value = data.name || '';
+      
+      // ✅ ПРАВИЛЬНАЯ ДАТА РЕГИСТРАЦИИ
+      if (data.created && data.created.toDate) {
+        const date = data.created.toDate();
+        document.getElementById('profile-date').textContent = date.toLocaleDateString('ru-RU', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } else {
+        document.getElementById('profile-date').textContent = 'Неизвестно';
+      }
+    } else {
+      document.getElementById('profile-name-input').value = '';
+      document.getElementById('profile-date').textContent = 'Неизвестно';
     }
-  } catch (e) { console.error(e); }
+  } catch (e) { 
+    console.error(e); 
+    document.getElementById('profile-date').textContent = 'Ошибка загрузки';
+  }
 };
 
 window.saveProfileName = async function() {
   if (!currentUser) return;
   const newName = document.getElementById('profile-name-input').value.trim();
   if (!newName) return alert('Введите имя');
-  try { await db.collection('users').doc(currentUser.uid).update({ name: newName }); alert('✅ Имя сохранено!'); } 
-  catch (e) { alert('Ошибка: ' + e.message); }
+  try { 
+    await db.collection('users').doc(currentUser.uid).update({ name: newName }); 
+    alert('✅ Имя сохранено!'); 
+  } catch (e) { alert('Ошибка: ' + e.message); }
 };
 
 // ==========================================
-// 5. ПАМЯТНИКИ
+// 6. ПАМЯТНИКИ
 // ==========================================
 window.loadMemorial = async function(id) {
   currentMemorialId = id;
@@ -175,7 +251,6 @@ window.loadMemorial = async function(id) {
     if (currentUser) {
       document.getElementById('auth-extra').classList.remove('hidden');
       
-      // ✅ КНОПКА РЕДАКТИРОВАНИЯ ДЛЯ АДМИНА
       if (userRole === 'admin') {
         const editBtn = document.createElement('button');
         editBtn.className = 'edit-memorial-btn';
@@ -229,7 +304,6 @@ window.saveMemorial = async function() {
 window.deleteMemorial = async function() {
   if (userRole !== 'admin') return;
   if (!confirm('⚠️ Вы уверены? Это действие нельзя отменить.')) return;
-  
   try {
     await db.collection('memorials').doc(currentMemorialId).delete();
     alert('🗑️ Памятник удален');
@@ -299,7 +373,7 @@ document.getElementById('add-memorial').addEventListener('submit', async (e) => 
 });
 
 // ==========================================
-// 6. СЕМЕЙНОЕ ДРЕВО
+// 7. СЕМЕЙНОЕ ДРЕВО
 // ==========================================
 function renderFamilyTree(fam) {
   const c = document.getElementById('family-tree-display');
@@ -328,7 +402,7 @@ window.addFamilyMember = function(mode, rel='', name='', years='') {
 };
 
 // ==========================================
-// 7. QR СКАНЕР
+// 8. QR СКАНЕР
 // ==========================================
 window.startScanner = function() {
   window.showSection('scanner');
@@ -345,7 +419,7 @@ window.startScanner = function() {
 window.stopScanner = function() { if (qrScanner) qrScanner.stop().catch(()=>{}); window.showSection('home'); };
 
 // ==========================================
-// 8. ЧАТЫ
+// 9. ЧАТЫ
 // ==========================================
 document.getElementById('feedback-form').addEventListener('submit', async (e) => {
   e.preventDefault();
