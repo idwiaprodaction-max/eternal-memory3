@@ -390,3 +390,32 @@ footer {
   h1 { font-size: 2rem; }
   section { padding: 1.5rem; }
 }
+
+/* ✅ ИСПРАВЛЕНИЕ ЦВЕТОВ ТЕКСТА */
+#auth-extra, #family-tree-display, .memorial-card, .admin-card {
+    color: #ffffff !important;
+}
+
+#m-bio, #m-years, #m-name {
+    color: #ffffff !important;
+}
+
+.message-card .text {
+    color: #e0e0e0 !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+}
+
+#chat-messages {
+    background: #121212 !important;
+}
+
+/* Стили для полей ввода в тёмной теме */
+input, textarea {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+    border: 1px solid #333 !important;
+}
+
+input::placeholder, textarea::placeholder {
+    color: #777 !important;
+}
