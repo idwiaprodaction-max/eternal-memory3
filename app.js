@@ -155,31 +155,7 @@ function loadHomeExamples() {
     `;
     grid.appendChild(card);
   });
-
-  if (userRole === 'admin') {
-    const btnContainer = document.getElementById('create-examples-btn');
-    if (btnContainer) btnContainer.style.display = 'block';
-  }
 }
-
-window.createExampleMemorials = async function() {
-  const examples = [
-    { id: 'ivanov', name: 'Иванов Иван Иванович', years: '1940 — 2015', details: 'Ветеран труда, проработал 40 лет на заводе. Любящий отец двоих детей и дедушка троих внуков.', lat: '55.7558', lng: '37.6173', family: [{ relation: 'spouse', name: 'Иванова Анна Петровна', years: '1945 — 2018' }, { relation: 'son', name: 'Иванов Сергей Иванович', years: '1970' }, { relation: 'daughter', name: 'Иванова Елена Ивановна', years: '1975' }] },
-    { id: 'petrova', name: 'Петрова Мария Сергеевна', years: '1952 — 2020', details: 'Учительница начальных классов с 30-летним стажем. Вырастила двоих детей.', lat: '59.9343', lng: '30.3351', family: [{ relation: 'spouse', name: 'Петров Николай Иванович', years: '1950 — 2019' }, { relation: 'son', name: 'Петров Андрей Николаевич', years: '1975' }, { relation: 'daughter', name: 'Петрова Ольга Николаевна', years: '1980' }] },
-    { id: 'sidorov', name: 'Сидоров Пётр Николаевич', years: '1935 — 2018', details: 'Фронтовик, участник Великой Отечественной войны. Награждён орденами и медалями.', lat: '55.0084', lng: '82.9357', family: [{ relation: 'spouse', name: 'Сидорова Валентина Ивановна', years: '1938' }, { relation: 'son', name: 'Сидоров Михаил Петрович', years: '1960' }, { relation: 'grandson', name: 'Сидоров Артём Михайлович', years: '1985' }] }
-  ];
-
-  let created = 0;
-  for (const ex of examples) {
-    const doc = await db.collection('memorials').doc(ex.id).get();
-    if (!doc.exists) {
-      await db.collection('memorials').doc(ex.id).set({ ...ex, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-      created++;
-    }
-  }
-  alert(`✅ Создано ${created} примеров!\nТеперь кнопки "Редактировать" работают.`);
-  loadHomeExamples();
-};
 
 // ==========================================
 // 5. ПРОФИЛЬ
@@ -232,7 +208,6 @@ window.loadMemorial = async function(id) {
   document.getElementById('btn-geo').classList.add('hidden');
   if(document.getElementById('auth-extra')) document.getElementById('auth-extra').classList.add('hidden');
 
-  // Удаляем старую кнопку редактирования если есть
   const oldBtn = document.querySelector('.edit-memorial-btn');
   if (oldBtn) oldBtn.remove();
 
@@ -318,6 +293,21 @@ window.showAdminPanel = function() {
   loadAdminList();
 };
 
+// ✅ ФУНКЦИЯ СКАЧИВАНИЯ QR КОДА
+window.downloadQRCode = function(memorialId, memorialName) {
+  const qrContainer = document.getElementById(`qr-${memorialId}`);
+  if (!qrContainer) return alert('QR код не найден');
+  
+  const canvas = qrContainer.querySelector('canvas');
+  if (!canvas) return alert('QR код ещё не сгенерирован');
+  
+  // Создаём временную ссылку для скачивания
+  const link = document.createElement('a');
+  link.download = `QR_${memorialName || memorialId}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+};
+
 function loadAdminList() {
   const div = document.getElementById('admin-list');
   div.innerHTML = '<p style="grid-column: 1/-1; text-align:center;">⏳ Загрузка...</p>';
@@ -332,8 +322,9 @@ function loadAdminList() {
         <h4>${d.name || 'Без имени'}</h4>
         <p>${d.years || ''}</p>
         <div id="qr-${doc.id}" style="margin:10px auto;"></div>
-        <div style="display:flex; gap:0.5rem; justify-content:center; margin-top:10px;">
+        <div style="display:flex; gap:0.5rem; justify-content:center; margin-top:10px; flex-wrap:wrap;">
           <button class="secondary-btn" onclick="window.loadMemorial('${doc.id}')">✏️ Изменить</button>
+          <button class="secondary-btn" onclick="window.downloadQRCode('${doc.id}', '${(d.name || '').replace(/'/g, "\\'")}')">📥 Скачать QR</button>
           <button class="secondary-btn" style="color:#ef4444; border-color:#ef4444;" onclick="window.deleteMemorialById('${doc.id}')">🗑️ Удалить</button>
         </div>
       `;
@@ -418,7 +409,7 @@ window.startScanner = function() {
 window.stopScanner = function() { if (qrScanner) qrScanner.stop().catch(()=>{}); window.showSection('home'); };
 
 // ==========================================
-// 9. ЧАТЫ + 🗑️ УДАЛЕНИЕ СООБЩЕНИЙ
+// 9. ЧАТЫ
 // ==========================================
 document.getElementById('feedback-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -490,7 +481,6 @@ window.openChat = async function(chatId) {
   renderChat(chatId);
 };
 
-// ✅ ОТРИСОВКА ЧАТА С КНОПКОЙ УДАЛЕНИЯ
 function renderChat(chatId) {
   const box = document.getElementById('chat-messages');
   box.innerHTML = '<p>⏳ Загрузка...</p>';
@@ -513,7 +503,6 @@ function renderChat(chatId) {
       const t = m.createdAt ? m.createdAt.toDate().toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : '';
       const senderName = m.sender === 'admin' ? '👑 Админ' : currentChatUserName;
 
-      // 🗑️ Кнопка удаления (только для админа)
       let deleteBtn = '';
       if (userRole === 'admin') {
         deleteBtn = `<button onclick="window.deleteMessage('${m.id}')" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:1.1em; margin-left:6px; opacity:0.5; transition:0.2s; padding:0;" title="Удалить сообщение">🗑️</button>`;
@@ -534,13 +523,11 @@ function renderChat(chatId) {
   }, err => { box.innerHTML = `<p style="color:#ef4444">❌ Ошибка чата</p>`; });
 }
 
-// ✅ ФУНКЦИЯ УДАЛЕНИЯ СООБЩЕНИЯ
 window.deleteMessage = async function(msgId) {
   if (userRole !== 'admin') return;
   if (!confirm('🗑️ Удалить это сообщение навсегда?')) return;
   try {
     await db.collection('messages').doc(msgId).delete();
-    // onSnapshot автоматически уберёт сообщение из чата у всех
   } catch (e) {
     alert('Ошибка удаления: ' + e.message);
   }
